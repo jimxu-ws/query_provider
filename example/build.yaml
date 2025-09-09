@@ -1,0 +1,6 @@
+targets:
+  $default:
+    builders:
+      # Riverpod 代码生成
+      riverpod_generator:
+        enabled: true
