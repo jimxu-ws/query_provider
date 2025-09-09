@@ -25,6 +25,15 @@ extension QueryWidgetRefExtension on WidgetRef {
 
   /// Read an infinite query notifier for manual operations
   InfiniteQueryNotifier<T, P> readInfiniteQueryNotifier<T, P>(StateNotifierProvider<InfiniteQueryNotifier<T, P>, InfiniteQueryState<T>> provider) => read(provider.notifier);
+  
+  /// Read a notifier for manual operations with safe handling of disposal
+  Future<Tr> safeRead<Tn, Tr>(Refreshable<Tn> notifier, Future<Tr> Function(Tn) call) async {
+    final sub = listenManual(notifier, (_, __) {});
+    final res = await call(sub.read());
+    sub.close();
+    return res;
+  }
+
 }
 
 /// Extension methods for Consumer widgets
