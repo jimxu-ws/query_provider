@@ -24,17 +24,14 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
 
   Timer? _refetchTimer;
   int _retryCount = 0;
-  late final QueryCache _cache;
-  late final AppLifecycleManager _lifecycleManager;
-  late final WindowFocusManager _windowFocusManager;
+  final QueryCache _cache = getGlobalQueryCache();
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
+  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
   bool _isRefetchPaused = false;
 
   @override
   FutureOr<T> build() async {
     // Initialize cache, lifecycle manager, and window focus manager
-    _cache = getGlobalQueryCache();
-    _lifecycleManager = AppLifecycleManager.instance;
-    _windowFocusManager = WindowFocusManager.instance;
     
     // Set up cache change listener for automatic UI updates
     _setupCacheListener();
@@ -305,17 +302,14 @@ class AutoDisposeAsyncQueryNotifier<T> extends AutoDisposeAsyncNotifier<T> with 
 
   Timer? _refetchTimer;
   int _retryCount = 0;
-  late final QueryCache _cache;
-  late final AppLifecycleManager _lifecycleManager;
-  late final WindowFocusManager _windowFocusManager;
+  final QueryCache _cache = getGlobalQueryCache();
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
+  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
   bool _isRefetchPaused = false;
 
   @override
   FutureOr<T> build() async {
     // Initialize cache, lifecycle manager, and window focus manager
-    _cache = getGlobalQueryCache();
-    _lifecycleManager = AppLifecycleManager.instance;
-    _windowFocusManager = WindowFocusManager.instance;
     
     // Set up cache change listener for automatic UI updates
     _setupCacheListener();
@@ -521,17 +515,14 @@ class AutoDisposeAsyncQueryNotifierFamily<T, P> extends AutoDisposeFamilyAsyncNo
 
   Timer? _refetchTimer;
   int _retryCount = 0;
-  late final QueryCache _cache;
-  late final AppLifecycleManager _lifecycleManager;
-  late final WindowFocusManager _windowFocusManager;
+  final QueryCache _cache = getGlobalQueryCache();
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
+  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
   bool _isRefetchPaused = false;
 
   @override
   FutureOr<T> build(P arg) async {
     // Initialize cache, lifecycle manager, and window focus manager
-    _cache = getGlobalQueryCache();
-    _lifecycleManager = AppLifecycleManager.instance;
-    _windowFocusManager = WindowFocusManager.instance;
     
     final paramKey = '$queryKey-$arg';
     
