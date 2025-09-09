@@ -41,6 +41,7 @@ class HomeScreen extends ConsumerWidget {
           ],
           bottom: const TabBar(
             isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: [
               Tab(text: 'Users', icon: Icon(Icons.people)),
               Tab(text: 'Posts', icon: Icon(Icons.article)),

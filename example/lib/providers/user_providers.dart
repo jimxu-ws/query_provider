@@ -14,6 +14,15 @@ final usersQueryProvider = queryProvider<List<User>>(
   ),
 );
 
+final usersAsyncQueryProvider = asyncQueryProvider<List<User>>(
+  name: 'users-async',
+  queryFn: ApiService.fetchUsers,
+  options: const QueryOptions<List<User>>(
+    staleTime: Duration(minutes: 5),
+    cacheTime: Duration(minutes: 10),
+  ),
+);
+
 /// Hook-based users query (use in HookConsumerWidget)
 /// 
 /// Usage example:

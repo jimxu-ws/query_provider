@@ -55,7 +55,7 @@ class PostsState {
 
 /// Unified provider that manages all post operations
 class UnifiedPostsNotifier extends StateNotifier<PostsState> {
-  UnifiedPostsNotifier(this._ref) : super(PostsState(
+  UnifiedPostsNotifier() : super(const PostsState(
     infiniteQueryState: InfiniteQueryIdle<PostPage>(),
     createMutationState: MutationIdle<Post>(),
     updateMutationState: MutationIdle<Post>(),
@@ -64,7 +64,6 @@ class UnifiedPostsNotifier extends StateNotifier<PostsState> {
     _initializeInfiniteQuery();
   }
 
-  final Ref _ref;
   
   // Internal infinite query notifier
   late final InfiniteQueryNotifier<PostPage, int> _infiniteQueryNotifier;
@@ -132,7 +131,7 @@ class UnifiedPostsNotifier extends StateNotifier<PostsState> {
   /// Create a new post with optimistic updates
   Future<Post> createPost(Map<String, dynamic> variables) async {
     // Set loading state
-    state = state.copyWith(createMutationState: MutationLoading<Post>());
+    state = state.copyWith(createMutationState: const MutationLoading<Post>());
 
     try {
       // Optimistic update
@@ -171,7 +170,7 @@ class UnifiedPostsNotifier extends StateNotifier<PostsState> {
   /// Update a post with optimistic updates
   Future<Post> updatePost(int postId, Map<String, dynamic> variables) async {
     // Set loading state
-    state = state.copyWith(updateMutationState: MutationLoading<Post>());
+    state = state.copyWith(updateMutationState: const MutationLoading<Post>());
 
     // Store original post for rollback
     Post? originalPost;
@@ -208,7 +207,7 @@ class UnifiedPostsNotifier extends StateNotifier<PostsState> {
   /// Delete a post with optimistic updates
   Future<void> deletePost(int postId) async {
     // Set loading state
-    state = state.copyWith(deleteMutationState: MutationLoading<void>());
+    state = state.copyWith(deleteMutationState: const MutationLoading<void>());
 
     // Store original post for rollback
     Post? originalPost;
@@ -494,7 +493,7 @@ class UnifiedPostsNotifier extends StateNotifier<PostsState> {
 
 /// The unified posts provider
 final unifiedPostsProvider = StateNotifierProvider<UnifiedPostsNotifier, PostsState>((ref) {
-  return UnifiedPostsNotifier(ref);
+  return UnifiedPostsNotifier();
 });
 
 /// Convenience providers for specific aspects

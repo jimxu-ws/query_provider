@@ -242,7 +242,9 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
 
   /// Fetch the first page
   Future<void> _fetchFirstPage() async {
-    if (!options.enabled) return;
+    if (!options.enabled) {
+      return;
+    }
 
     state = const InfiniteQueryLoading();
 
