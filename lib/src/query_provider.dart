@@ -35,27 +35,32 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
 
   Timer? _refetchTimer;
   int _retryCount = 0;
+  // Initialize cache, lifecycle manager, and window focus manager
   final QueryCache _cache = getGlobalQueryCache();
   final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
   final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
   bool _isRefetchPaused = false;
+  bool _isInitialized = false;
 
   void _initialize() {
-    // Initialize cache, lifecycle manager, and window focus manager
-    
-    // Set up cache change listener for automatic UI updates
-    _setupCacheListener();
-    
-    // Set up lifecycle and window focus callbacks
-    _setupLifecycleCallbacks();
-    _setupWindowFocusCallbacks();
+    // Prevent duplicate initialization
+    if (!_isInitialized) {
+      _isInitialized = true;
+      
+      // Set up cache change listener for automatic UI updates
+      _setupCacheListener();
+      
+      // Set up lifecycle and window focus callbacks
+      _setupLifecycleCallbacks();
+      _setupWindowFocusCallbacks();
+    }
     
     if (options.enabled && options.refetchOnMount) {
       _fetch();
     }
 
     // Set up automatic refetching if configured
-    if (options.refetchInterval != null) {
+    if (options.enabled && options.refetchInterval != null) {
       _scheduleRefetch();
     }
   }
@@ -247,7 +252,7 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
   void dispose() {
     _refetchTimer?.cancel();
     
-    // Clean up cache listener
+    // Clean up cache listener (removes ALL listeners for this queryKey)
     _cache.removeAllListeners(queryKey);
     
     // Clean up lifecycle callbacks
@@ -262,6 +267,9 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
     if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
       _windowFocusManager.removeOnFocusCallback(_onWindowFocus);
     }
+    
+    // Reset initialization flag
+    _isInitialized = false;
     
     super.dispose();
   }

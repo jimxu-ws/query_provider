@@ -41,7 +41,7 @@ class QueryClient {
   /// Invalidate queries by key pattern
   void invalidateQueries(String keyPattern) {
     // Always clear cache entries matching the pattern
-    _cache.removeByPattern(keyPattern);
+    _cache.removeByPattern(keyPattern, notify: false);
     
     // If no container, cache clearing is all we can do
     if (_container == null) {
@@ -85,7 +85,7 @@ class QueryClient {
   /// Remove queries from cache by key pattern
   void removeQueries(String keyPattern) {
     // Remove from cache
-    _cache.removeByPattern(keyPattern);
+    _cache.removeByPattern(keyPattern, notify: false);
     
     // Invalidate matching providers
     invalidateQueries(keyPattern);

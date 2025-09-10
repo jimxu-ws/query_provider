@@ -202,7 +202,7 @@ class QueryCache {
   }
 
   /// Set a cache entry
-  void set<T>(String key, QueryCacheEntry<T> entry) {
+  void set<T>(String key, QueryCacheEntry<T> entry, {bool notify = true}) {
     // Remove existing entry if present
     _cache.remove(key);
     
@@ -211,7 +211,9 @@ class QueryCache {
     _emitEvent(QueryCacheEventType.set, key, entry);
     
     // Notify listeners of the change
-    _notifyListeners<T>(key, entry);
+    if (notify) {
+      _notifyListeners<T>(key, entry);
+    }
     
     // Evict oldest entries if cache is full
     _evictIfNecessary();
@@ -223,13 +225,14 @@ class QueryCache {
     T data, {
     QueryOptions<T>? options,
     DateTime? fetchedAt,
+    bool notify = true
   }) {
     final entry = QueryCacheEntry<T>(
       data: data,
       fetchedAt: fetchedAt ?? DateTime.now(),
       options: options ?? QueryOptions<T>(cacheTime: defaultCacheTime),
     );
-    set(key, entry);
+    set(key, entry, notify: notify);
   }
 
   /// Set cache error with automatic entry creation
@@ -251,12 +254,14 @@ class QueryCache {
   }
 
   /// Remove a specific cache entry
-  bool remove(String key) {
+  bool remove(String key, {bool notify = true}) {
     final entry = _cache.remove(key);
     if (entry != null) {
       _emitEvent(QueryCacheEventType.evict, key, entry);
       // Notify listeners that entry was removed
-      _notifyListeners(key, null);
+      if (notify) {
+        _notifyListeners(key, null);
+      }
       return true;
     }
     return false;
@@ -273,13 +278,13 @@ class QueryCache {
   }
 
   /// Remove entries matching a key pattern
-  int removeByPattern(String pattern) {
+  int removeByPattern(String pattern, {bool notify = true}) {
     final keysToRemove = _cache.keys
         .where((key) => key.contains(pattern))
         .toList();
     
     for (final key in keysToRemove) {
-      remove(key);
+      remove(key, notify: notify);
     }
     
     return keysToRemove.length;

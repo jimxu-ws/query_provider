@@ -572,8 +572,7 @@ mixin QueryCapabilities<T> on StateNotifier<T> {
 
   /// Invalidate queries by pattern
   void invalidateQueries(String pattern) {
-    final queryClient = QueryClient();
-    queryClient.invalidateQueries(pattern);
+    QueryClient.instance.invalidateQueries(pattern);
   }
 }
 

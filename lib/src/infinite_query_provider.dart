@@ -225,17 +225,22 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
 
   Timer? _refetchTimer;
   int _retryCount = 0;
+  bool _isInitialized = false;
 
   void _initialize() {
-    // Set up cache change listener for automatic UI updates
-    _setupCacheListener();
+    if (!_isInitialized) {
+      _isInitialized = true;
+      // Set up cache change listener for automatic UI updates
+      _setupCacheListener();
+
+    }
     
     if (options.enabled && options.refetchOnMount) {
       _fetchFirstPage();
     }
 
     // Set up automatic refetching if configured
-    if (options.refetchInterval != null) {
+    if (options.enabled && options.refetchInterval != null) {
       _scheduleRefetch();
     }
   }

@@ -24,45 +24,54 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
 
   Timer? _refetchTimer;
   int _retryCount = 0;
+
+  // Initialize cache, lifecycle manager, and window focus manager
   final QueryCache _cache = getGlobalQueryCache();
   final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
   final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
   bool _isRefetchPaused = false;
+  bool _isInitialized = false;
 
   @override
   FutureOr<T> build() async {
-    // Initialize cache, lifecycle manager, and window focus manager
-    
-    // Set up cache change listener for automatic UI updates
-    _setupCacheListener();
-    
-    // Set up lifecycle and window focus callbacks
-    _setupLifecycleCallbacks();
-    _setupWindowFocusCallbacks();
-    
-    // Set up automatic refetching if configured
-    if (options.refetchInterval != null) {
-      _scheduleRefetch();
+    // Prevent duplicate initialization
+    if (!_isInitialized) {
+      _isInitialized = true;
+      
+      // Set up cache change listener for automatic UI updates
+      _setupCacheListener();
+      
+      // Set up lifecycle and window focus callbacks
+      _setupLifecycleCallbacks();
+      _setupWindowFocusCallbacks();
+      
+      // Set up cleanup when the notifier is disposed
+      ref.onDispose(() {
+        _refetchTimer?.cancel();
+        _cache.removeAllListeners(queryKey);
+        
+        // Clean up lifecycle callbacks
+        if (options.refetchOnAppFocus) {
+          _lifecycleManager.removeOnResumeCallback(_onAppResumed);
+        }
+        if (options.pauseRefetchInBackground) {
+          _lifecycleManager.removeOnPauseCallback(_onAppPaused);
+        }
+        
+        // Clean up window focus callbacks
+        if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
+          _windowFocusManager.removeOnFocusCallback(_onWindowFocused);
+        }
+        
+        // Reset initialization flag
+        _isInitialized = false;
+      });
     }
 
-    // Set up cleanup when the notifier is disposed
-    ref.onDispose(() {
-      _refetchTimer?.cancel();
-      _cache.removeAllListeners(queryKey);
-      
-      // Clean up lifecycle callbacks
-      if (options.refetchOnAppFocus) {
-        _lifecycleManager.removeOnResumeCallback(_onAppResumed);
-      }
-      if (options.pauseRefetchInBackground) {
-        _lifecycleManager.removeOnPauseCallback(_onAppPaused);
-      }
-      
-      // Clean up window focus callbacks
-      if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
-        _windowFocusManager.removeOnFocusCallback(_onWindowFocused);
-      }
-    });
+    // Set up automatic refetching if configured
+    if (options.enabled && options.refetchInterval != null) {
+      _scheduleRefetch();
+    }
 
     // Check cache first
     if (options.enabled) {
