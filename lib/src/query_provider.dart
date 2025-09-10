@@ -66,7 +66,7 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
   }
 
   /// Fetch data
-  Future<void> _fetch() async {
+  Future<void> _fetch({bool forceFetchRemote = false}) async {
     if (!options.enabled) {
       return;
     }
@@ -75,7 +75,7 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
 
     // Check cache first
     final cachedEntry = _getCachedEntry();
-    if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
+    if (!forceFetchRemote && cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
       debugPrint('Using cached data in query notifier for key $queryKey');
       state = QuerySuccess(cachedEntry.data as T, fetchedAt: cachedEntry.fetchedAt);
       return;
@@ -134,10 +134,10 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
   }
 
   /// Refetch the query
-  Future<void> refetch() => _fetch();
+  Future<void> refetch({bool forceFetchRemote = false}) => _fetch(forceFetchRemote: forceFetchRemote);
 
   /// Invalidate and refetch
-  Future<void> invalidate() {
+  Future<void> refresh() {
     _clearCache();
     return _fetch();
   }

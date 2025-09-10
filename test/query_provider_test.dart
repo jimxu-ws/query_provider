@@ -257,7 +257,7 @@ void main() {
       expect(cache.get<String>('test-query'), isNotNull);
       
       // Invalidate
-      await container.read(provider.notifier).invalidate();
+      await container.read(provider.notifier).refresh();
       
       expect(MockApiService.callCount, 2);
       
