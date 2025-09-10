@@ -71,25 +71,30 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
       return;
     }
 
-    debugPrint('Fetching data in query notifier');
+    debugPrint('Fetching data in query notifier for key $queryKey');
 
     // Check cache first
     final cachedEntry = _getCachedEntry();
     if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
+      debugPrint('Using cached data in query notifier for key $queryKey');
       state = QuerySuccess(cachedEntry.data as T, fetchedAt: cachedEntry.fetchedAt);
       return;
     }
 
     // Determine loading state
     if (options.keepPreviousData && state.hasData) {
+      debugPrint('Using state data in query notifier for key $queryKey');
       state = QueryRefetching(state.data as T, fetchedAt: cachedEntry?.fetchedAt);
     }else if(options.keepPreviousData && cachedEntry != null && cachedEntry.hasData){
+      debugPrint('Using stale cached data in query notifier for key $queryKey');
       state = QueryRefetching(cachedEntry.data as T, fetchedAt: cachedEntry.fetchedAt);
     }else {
       state = const QueryLoading();
     }
 
     try {
+      debugPrint('Querying data from server in query notifier for key $queryKey');
+
       final data = await queryFn();
       final now = DateTime.now();
       

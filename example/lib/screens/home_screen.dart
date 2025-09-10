@@ -7,6 +7,7 @@ import '../examples/background_refetch_example.dart';
 import '../examples/lifecycle_aware_example.dart';
 import '../examples/window_focus_example.dart';
 import '../providers/user_providers.dart';
+import 'user_detail_async_screen.dart';
 import '../models/user.dart';
 import 'user_detail_screen.dart';
 import 'posts_screen.dart';
@@ -21,7 +22,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 9,
+      length: 10,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Query Provider Example'),
@@ -44,6 +45,7 @@ class HomeScreen extends ConsumerWidget {
             tabAlignment: TabAlignment.start,
             tabs: [
               Tab(text: 'Users', icon: Icon(Icons.people)),
+              Tab(text: 'Users Async', icon: Icon(Icons.people_outline)),
               Tab(text: 'Posts', icon: Icon(Icons.article)),
               Tab(text: 'Search', icon: Icon(Icons.search)),
               Tab(text: 'Mutations', icon: Icon(Icons.edit)),
@@ -58,6 +60,7 @@ class HomeScreen extends ConsumerWidget {
         body: const TabBarView(
           children: [
             UsersTab(),
+            UsersAsyncTab(),
             PostsTab(),
             SearchTab(),
             MutationsTab(),
@@ -420,6 +423,186 @@ class _MutationsTabState extends ConsumerState<MutationsTab> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class UsersAsyncTab extends ConsumerWidget {
+  const UsersAsyncTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersAsync = ref.watch(usersAsyncQueryProvider);
+
+    return usersAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stackTrace) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error, size: 64, color: Colors.red[300]),
+            const SizedBox(height: 16),
+            Text('Error: $error'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => ref.invalidate(usersAsyncQueryProvider),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+      data: (users) => RefreshIndicator(
+        onRefresh: () async {
+          final notifier = ref.read(usersAsyncQueryProvider.notifier);
+          await notifier.refetch();
+        },
+        child: Column(
+          children: [
+            // Header with info about async providers
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'AsyncQueryProvider Demo',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'This tab demonstrates:\n'
+                    '• asyncQueryProvider for users list\n'
+                    '• asyncQueryProviderFamily for individual users\n'
+                    '• AsyncValue.when() pattern\n'
+                    '• Background refetch capabilities',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+            // Users list
+            Expanded(
+              child: ListView.builder(
+                itemCount: users.length,
+                itemBuilder: (context, index) {
+                  final user = users[index];
+                  return AsyncUserListTile(user: user);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AsyncUserListTile extends ConsumerWidget {
+  const AsyncUserListTile({super.key, required this.user});
+
+  final User user;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the individual user using the async family provider
+    final userAsync = ref.watch(userAsyncQueryProviderFamily(user.id));
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: userAsync.when(
+        loading: () => ListTile(
+          leading: CircleAvatar(
+            backgroundImage: user.avatar != null ? NetworkImage(user.avatar!) : null,
+            child: user.avatar == null ? Text(user.name[0]) : null,
+          ),
+          title: Text(user.name),
+          subtitle: const Text('Loading details...'),
+          trailing: const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+        error: (error, stackTrace) => ListTile(
+          leading: CircleAvatar(
+            backgroundColor: Colors.red[100],
+            child: Icon(Icons.error, color: Colors.red[700]),
+          ),
+          title: Text(user.name),
+          subtitle: Text('Error: $error'),
+          trailing: IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.invalidate(userAsyncQueryProviderFamily(user.id)),
+          ),
+        ),
+        data: (detailedUser) => ListTile(
+          leading: CircleAvatar(
+            backgroundImage: detailedUser.avatar != null ? NetworkImage(detailedUser.avatar!) : null,
+            child: detailedUser.avatar == null ? Text(detailedUser.name[0]) : null,
+          ),
+          title: Text(detailedUser.name),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(detailedUser.email),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Icon(Icons.check_circle, size: 12, color: Colors.green[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Loaded via AsyncQueryProviderFamily',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.green[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 18),
+                onPressed: () async {
+                  final notifier = ref.read(userAsyncQueryProviderFamily(user.id).notifier);
+                  await notifier.refetch();
+                },
+                tooltip: 'Refresh this user',
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 16),
+            ],
+          ),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => UserDetailAsyncScreen(userId: detailedUser.id),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

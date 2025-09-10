@@ -29,6 +29,17 @@ StateNotifierProvider<QueryNotifier<List<Post>>, QueryState<List<Post>>> userPos
   );
 }
 
+/// Async query provider family for fetching posts by user ID
+final userPostsAsyncQueryProviderFamily = asyncQueryProviderFamily<List<Post>, int>(
+  name: 'user-posts-async',
+  queryFn: ApiService.fetchUserPosts,
+  options: const QueryOptions<List<Post>>(
+    staleTime: Duration(minutes: 3),
+    cacheTime: Duration(minutes: 10),
+    refetchOnWindowFocus: true,
+  ),
+);
+
 /// Mutation provider for creating a new post
 final createPostMutationProvider = StateNotifierProvider<MutationNotifier<Post, Map<String, dynamic>>, MutationState<Post>>((ref) {
   return MutationNotifier<Post, Map<String, dynamic>>(
@@ -136,9 +147,9 @@ final updatePostMutationProvider = StateNotifierProvider.family<MutationNotifier
       onMutate: (variables) async {
         final queryClient = ref.read(queryClientProvider);
         
-        // Store original data for rollback
-        final originalInfiniteData = queryClient.getCacheEntry<List<PostPage>>('posts-infinite')?.data;
-        final originalUserPostsData = queryClient.getCacheEntry<List<Post>>('user-posts-${variables['userId']}')?.data;
+        // Note: Original data could be stored here for rollback if needed
+        // final originalInfiniteData = queryClient.getCacheEntry<List<PostPage>>('posts-infinite')?.data;
+        // final originalUserPostsData = queryClient.getCacheEntry<List<Post>>('user-posts-${variables['userId']}')?.data;
         
         // Update post in infinite query cache
         final infiniteQueryEntry = queryClient.getCacheEntry<List<PostPage>>('posts-infinite');
@@ -259,8 +270,8 @@ final deletePostMutationProvider = StateNotifierProvider.family<MutationNotifier
       onMutate: (id) async {
         final queryClient = ref.read(queryClientProvider);
         
-        // Store original data for rollback
-        final originalInfiniteData = queryClient.getCacheEntry<List<PostPage>>('posts-infinite')?.data;
+        // Note: Original data could be stored here for rollback if needed
+        // final originalInfiniteData = queryClient.getCacheEntry<List<PostPage>>('posts-infinite')?.data;
         Post? deletedPost;
         
         // Remove post from infinite query cache

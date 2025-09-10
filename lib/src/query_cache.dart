@@ -58,7 +58,7 @@ class QueryCacheEntry<T> {
   /// Create a stale copy of the entry
     QueryCacheEntry<T> copyAsStale() => QueryCacheEntry<T>(
       data: this.data,
-      fetchedAt: this.fetchedAt.subtract(this.options.staleTime - const Duration(seconds: 1)),
+      fetchedAt: this.fetchedAt.subtract(this.options.staleTime + const Duration(minutes: 1)),
       options: this.options,
       error: this.error,
       stackTrace: this.stackTrace,

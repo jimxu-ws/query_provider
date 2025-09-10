@@ -24,6 +24,17 @@ final usersAsyncQueryProvider = asyncQueryProvider<List<User>>(
   ),
 );
 
+/// Async query provider family for fetching individual users by ID
+final userAsyncQueryProviderFamily = asyncQueryProviderFamily<User, int>(
+  name: 'user-async',
+  queryFn: ApiService.fetchUser,
+  options: const QueryOptions<User>(
+    staleTime: Duration(minutes: 3),
+    cacheTime: Duration(minutes: 15),
+    refetchOnWindowFocus: true,
+  ),
+);
+
 /// Hook-based users query (use in HookConsumerWidget)
 /// 
 /// Usage example:
