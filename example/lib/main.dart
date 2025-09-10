@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'examples/background_foreground_example.dart';
-import 'examples/background_refetch_example.dart';
-import 'examples/window_focus_example.dart';
 import 'screens/home_screen.dart';
 
 void main() {

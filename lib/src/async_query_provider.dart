@@ -557,13 +557,16 @@ AsyncNotifierProvider<AsyncQueryNotifier<T>, T> asyncQueryProvider<T>({
   required QueryFunction<T> queryFn,
   QueryOptions<T>? options,
 }) {
-  return AsyncNotifierProvider<AsyncQueryNotifier<T>, T>(() {
-    return AsyncQueryNotifier<T>(
-      queryFn: queryFn,
-      options: options ?? QueryOptions<T>(),
-      queryKey: name,
-    );
-  });
+  return AsyncNotifierProvider<AsyncQueryNotifier<T>, T>(
+    () {
+      return AsyncQueryNotifier<T>(
+        queryFn: queryFn,
+        options: options ?? QueryOptions<T>(),
+        queryKey: name,
+      );
+    },
+    name: name,
+  );
 }
 
 /// 🔥 Full-featured AsyncNotifier-based query provider with parameters
@@ -609,11 +612,14 @@ AsyncNotifierProviderFamily<AsyncQueryNotifierFamily<T, P>, T, P> asyncQueryProv
   required QueryFunctionWithParams<T, P> queryFn,
   QueryOptions<T>? options,
 }) {
-  return AsyncNotifierProvider.family<AsyncQueryNotifierFamily<T, P>, T, P>(() {
-    return AsyncQueryNotifierFamily<T, P>(
-      queryFn: queryFn,
-      options: options ?? QueryOptions<T>(),
-      queryKey: name,
-    );
-  });
+  return AsyncNotifierProvider.family<AsyncQueryNotifierFamily<T, P>, T, P>(
+    () {
+      return AsyncQueryNotifierFamily<T, P>(
+        queryFn: queryFn,
+        options: options ?? QueryOptions<T>(),
+        queryKey: name,
+      );
+    },
+    name: name,
+  );
 }

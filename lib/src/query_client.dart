@@ -181,7 +181,7 @@ final queryClientProvider = Provider<QueryClient>((ref) {
   // Automatically set the container for provider invalidation support
   QueryClient.setContainer(ref.container);
   
-  ref.onDispose(client._cleanupTimers);
+  ref.onDispose(client.dispose);
   return client;
 });
 
