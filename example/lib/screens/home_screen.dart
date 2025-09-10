@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:query_provider/query_provider.dart';
 
-import '../examples/autodispose_async_example.dart';
 import '../examples/background_foreground_example.dart';
 import '../examples/background_refetch_example.dart';
 import '../examples/lifecycle_aware_example.dart';
@@ -22,7 +21,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 10,
+      length: 8,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Query Provider Example'),
@@ -48,7 +47,6 @@ class HomeScreen extends ConsumerWidget {
               Tab(text: 'Posts', icon: Icon(Icons.article)),
               Tab(text: 'Search', icon: Icon(Icons.search)),
               Tab(text: 'Mutations', icon: Icon(Icons.edit)),
-              Tab(text: 'AutoDispose Async', icon: Icon(Icons.auto_delete)),
               Tab(text: 'BackgroundRefetchExample', icon: Icon(Icons.code)),
               Tab(text: 'BackgroundForegroundExample', icon: Icon(Icons.code)),
               Tab(text: 'LifecycleAwareExample', icon: Icon(Icons.code)),
@@ -63,7 +61,6 @@ class HomeScreen extends ConsumerWidget {
             PostsTab(),
             SearchTab(),
             MutationsTab(),
-            AutoDisposeAsyncExample(),
             BackgroundRefetchExample(),
             BackgroundForegroundExample(),
             LifecycleAwareExample(),

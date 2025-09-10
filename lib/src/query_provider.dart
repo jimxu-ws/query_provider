@@ -281,6 +281,7 @@ StateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProvider<T>({
     name: name,
   );
 
+
 /// Provider family for creating queries with parameters
 StateNotifierProviderFamily<QueryNotifier<T>, QueryState<T>, P> queryProviderFamily<T, P>({
   required String name,
@@ -294,6 +295,7 @@ StateNotifierProviderFamily<QueryNotifier<T>, QueryState<T>, P> queryProviderFam
     ),
     name: name,
   );
+
 
 /// Convenience function for creating parameterized queries with constant parameters
 StateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProviderWithParams<T, P>({
