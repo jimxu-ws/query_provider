@@ -22,20 +22,20 @@ sealed class QueryState<T> {
 
   /// Returns the data if available, null otherwise
   T? get data => switch (this) {
-        QuerySuccess<T> success => success.data,
-        QueryRefetching<T> refetching => refetching.previousData,
+        final QuerySuccess<T> success => success.data,
+        final QueryRefetching<T> refetching => refetching.previousData,
         _ => null,
       };
 
   /// Returns the error if available, null otherwise
   Object? get error => switch (this) {
-        QueryError<T> error => error.error,
+        final QueryError<T> error => error.error,
         _ => null,
       };
 
   /// Returns the stack trace if available, null otherwise
   StackTrace? get stackTrace => switch (this) {
-        QueryError<T> error => error.stackTrace,
+        final QueryError<T> error => error.stackTrace,
         _ => null,
       };
 }

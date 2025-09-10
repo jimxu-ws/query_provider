@@ -40,6 +40,7 @@ class QueryCacheEntry<T> {
   /// Returns true if this entry has an error
   bool get hasError => error != null;
 
+  /// Create a copy of the entry
   QueryCacheEntry<T> copyWith({
     T? data,
     DateTime? fetchedAt,
@@ -52,6 +53,15 @@ class QueryCacheEntry<T> {
       options: options ?? this.options,
       error: error ?? this.error,
       stackTrace: stackTrace ?? this.stackTrace,
+    );
+
+  /// Create a stale copy of the entry
+    QueryCacheEntry<T> copyAsStale() => QueryCacheEntry<T>(
+      data: this.data,
+      fetchedAt: this.fetchedAt.subtract(this.options.staleTime - const Duration(seconds: 1)),
+      options: this.options,
+      error: this.error,
+      stackTrace: this.stackTrace,
     );
 
   @override
@@ -288,6 +298,22 @@ class QueryCache {
     }
     
     return keysToRemove.length;
+  }
+
+  /// Remove entries matching a key pattern
+  int markAsStaleByPattern(String pattern) {
+    final keysToStale = _cache.keys
+        .where((key) => key.contains(pattern))
+        .toList();
+    
+    for (final key in keysToStale) {
+      final entry = _cache[key];
+      if (entry != null) {
+        set(key, entry.copyAsStale(), notify: false);
+      }
+    }
+    
+    return keysToStale.length;
   }
 
   /// Get all cache keys

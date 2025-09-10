@@ -67,10 +67,11 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
 
   /// Fetch data
   Future<void> _fetch() async {
-    debugPrint('Fetching data in query notifier');
     if (!options.enabled) {
       return;
     }
+
+    debugPrint('Fetching data in query notifier');
 
     // Check cache first
     final cachedEntry = _getCachedEntry();
@@ -80,9 +81,11 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
     }
 
     // Determine loading state
-    if (state.hasData && options.keepPreviousData) {
+    if (options.keepPreviousData && state.hasData) {
       state = QueryRefetching(state.data as T, fetchedAt: cachedEntry?.fetchedAt);
-    } else {
+    }else if(options.keepPreviousData && cachedEntry != null && cachedEntry.hasData){
+      state = QueryRefetching(cachedEntry.data as T, fetchedAt: cachedEntry.fetchedAt);
+    }else {
       state = const QueryLoading();
     }
 
@@ -148,7 +151,7 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
   /// Get current cached data
   T? getCachedData() {
     final entry = _getCachedEntry();
-    return entry?.hasData == true ? entry!.data as T : null;
+    return entry?.hasData??false ? entry!.data as T : null;
   }
 
   void _scheduleRefetch() {
@@ -237,7 +240,6 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
   /// Set up cache change listener for automatic UI updates
   void _setupCacheListener() {
     _cache.addListener<T>(queryKey, (entry) {
-      debugPrint('Cache listener called for key $queryKey in query notifier');
       if (entry?.hasData ?? false) {
         // Update state when cache data changes externally (e.g., optimistic updates)
         state = QuerySuccess(entry!.data as T, fetchedAt: entry.fetchedAt);
@@ -245,6 +247,7 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
         // Cache entry was removed, reset to idle
         state = const QueryIdle();
       }
+      debugPrint('Cache listener called for key $queryKey in query notifier, change state to ${state.runtimeType}');
     });
   }
 

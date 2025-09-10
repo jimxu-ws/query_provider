@@ -11,6 +11,7 @@ final usersQueryProvider = queryProvider<List<User>>(
     staleTime: Duration(minutes: 5),
     cacheTime: Duration(minutes: 10),
     refetchOnMount: true,
+    keepPreviousData: true,
   ),
 );
 
@@ -259,7 +260,7 @@ final deleteUserMutationProvider = StateNotifierProvider.family<MutationNotifier
         print('User $id deleted successfully');
         
         // Invalidate queries to ensure consistency
-        queryClient.invalidateQueries('users');
+        queryClient.invalidateQueries('users', markAsStale: true);
         queryClient.invalidateQueries('userSearch');
         queryClient.removeQueries('user-$id');
       },

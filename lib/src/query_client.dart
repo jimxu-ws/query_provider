@@ -39,9 +39,13 @@ class QueryClient {
   bool get supportsProviderInvalidation => _container != null;
   
   /// Invalidate queries by key pattern
-  void invalidateQueries(String keyPattern) {
-    // Always clear cache entries matching the pattern
-    _cache.removeByPattern(keyPattern, notify: false);
+  void invalidateQueries(String keyPattern, {bool markAsStale = false}) {
+    if(!markAsStale){
+      // Always clear cache entries matching the pattern
+      _cache.removeByPattern(keyPattern, notify: false);
+    }else{
+      _cache.markAsStaleByPattern(keyPattern);
+    }
     
     // If no container, cache clearing is all we can do
     if (_container == null) {
