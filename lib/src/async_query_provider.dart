@@ -81,11 +81,14 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
         if (options.refetchOnMount) {
           Future.microtask(() => _backgroundRefetch());
         }
+        debugPrint('Returning cached data in async query notifier');
         return cachedEntry.data as T;
       }
 
       if(options.keepPreviousData && (state.hasValue || (cachedEntry != null && cachedEntry.hasData))){
         Future.microtask(() => _backgroundRefetch());
+
+        debugPrint('Keeping previous data in async query notifier');
         return state.hasValue ? state.value as T : cachedEntry?.data as T;
       }
     }
@@ -101,6 +104,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
   /// Perform the actual data fetch
   Future<T> _performFetch() async {
     try {
+      debugPrint('Performing fetch in async query notifier');
       final data = await queryFn();
       final now = DateTime.now();
       
@@ -132,6 +136,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
   /// Background refetch without changing loading state
   Future<void> _backgroundRefetch() async {
     try {
+      debugPrint('Background refetching in async query notifier');
       final data = await _performFetch();
       state = AsyncValue.data(data);
     } catch (error, stackTrace) {
@@ -331,11 +336,13 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
         if (options.refetchOnMount) {
           Future.microtask(() => _backgroundRefetch(arg));
         }
+        debugPrint('Returning cached data in async query notifier family');
         return cachedEntry.data as T;
       }
 
       if (options.keepPreviousData && (state.hasValue || (cachedEntry != null && cachedEntry.hasData))) {
         Future.microtask(() => _backgroundRefetch(arg));
+        debugPrint('Keeping previous data in async query notifier family');
         return state.hasValue ? state.value as T : cachedEntry?.data as T;
       }
     }
@@ -351,6 +358,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
   /// Perform the actual data fetch
   Future<T> _performFetch(P arg) async {
     try {
+      debugPrint('Performing fetch in async query notifier family');
       final data = await queryFn(arg);
       final now = DateTime.now();
       final paramKey = '$queryKey-$arg';
@@ -383,6 +391,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
   /// Background refetch without changing loading state
   Future<void> _backgroundRefetch(P arg) async {
     try {
+      debugPrint('Background refetching in async query notifier family');
       final data = await _performFetch(arg);
       state = AsyncValue.data(data);
     } catch (error, stackTrace) {

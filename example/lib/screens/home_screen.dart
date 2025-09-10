@@ -459,45 +459,6 @@ class UsersAsyncTab extends ConsumerWidget {
         },
         child: Column(
           children: [
-            // Header with info about async providers
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.all(16.0),
-              padding: const EdgeInsets.all(16.0),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue[200]!),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.info, color: Colors.blue[700]),
-                      const SizedBox(width: 8),
-                      Text(
-                        'AsyncQueryProvider Demo',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue[700],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'This tab demonstrates:\n'
-                    '• asyncQueryProvider for users list\n'
-                    '• asyncQueryProviderFamily for individual users\n'
-                    '• AsyncValue.when() pattern\n'
-                    '• Background refetch capabilities',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
             // Users list
             Expanded(
               child: ListView.builder(
@@ -571,9 +532,9 @@ class AsyncUserListTile extends ConsumerWidget {
                   Text(
                     'Loaded via AsyncQueryProviderFamily',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 6,
                       color: Colors.green[600],
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.normal,
                     ),
                   ),
                 ],
@@ -591,6 +552,11 @@ class AsyncUserListTile extends ConsumerWidget {
                 },
                 tooltip: 'Refresh this user',
               ),
+              IconButton(
+                icon: Icon(Icons.delete, size: 18, color: Colors.red[600]),
+                onPressed: () => _showDeleteConfirmation(context, ref, detailedUser),
+                tooltip: 'Delete user',
+              ),
               const Icon(Icons.arrow_forward_ios, size: 16),
             ],
           ),
@@ -603,6 +569,109 @@ class AsyncUserListTile extends ConsumerWidget {
             );
           },
         ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, WidgetRef ref, User user) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete User'),
+        content: Text('Are you sure you want to delete ${user.name}?\n\nThis action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          Consumer(
+            builder: (context, ref, child) {
+              final deleteState = ref.watch(deleteUserMutationProvider2(user.id));
+              
+              if (deleteState.isLoading) {
+                return ElevatedButton(
+                  onPressed: null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[300],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Text('Deleting...'),
+                    ],
+                  ),
+                );
+              }
+              
+              if (deleteState.isSuccess) {
+                return ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Deleted!'),
+                );
+              }
+              
+              if (deleteState.hasError) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Error: ${deleteState.error}', 
+                         style: const TextStyle(color: Colors.red, fontSize: 12)),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final notifier = ref.read(deleteUserMutationProvider2(user.id).notifier);
+                        await notifier.mutate(user.id);
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Retry Delete'),
+                    ),
+                  ],
+                );
+              }
+              
+              // Default idle state
+              return ElevatedButton(
+                onPressed: () async {
+                  final notifier = ref.read(deleteUserMutationProvider2(user.id).notifier);
+                  await notifier.mutate(user.id);
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${user.name} deleted successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Delete'),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

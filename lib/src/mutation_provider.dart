@@ -40,8 +40,11 @@ class MutationNotifier<TData, TVariables> extends StateNotifier<MutationState<TD
 
       return data;
     } catch (error, stackTrace) {
+      debugPrint('Mutation error: $error');
+      debugPrint('Mutation stack trace: $stackTrace');
       if (_retryCount < options.retry) {
         _retryCount++;
+        debugPrint('Mutation retrying: $_retryCount');
         await Future<void>.delayed(options.retryDelay);
         return mutate(variables);
       }

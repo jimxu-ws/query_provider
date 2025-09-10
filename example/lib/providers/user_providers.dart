@@ -285,3 +285,42 @@ final deleteUserMutationProvider = StateNotifierProvider.family<MutationNotifier
     ),
   ),
 );
+
+
+/// Mutation provider for deleting a user
+final deleteUserMutationProvider2 = StateNotifierProvider.family<MutationNotifier<void, int>, MutationState<void>, int>(
+  (ref, userId) => MutationNotifier<void, int>(
+    mutationFn: (id) => ApiService.deleteUser(id),
+    options: MutationOptions<void, int>(
+      onMutate: (id) async {
+        final queryClient = ref.read(queryClientProvider);
+        
+        // Optimistic update: Remove the user from the cache immediately
+        final currentUsers = queryClient.getQueryData<List<User>>('users-async');
+        if (currentUsers != null) {
+          final updatedUsers = currentUsers.where((user) => user.id != id).toList();
+          queryClient.setQueryData<List<User>>('users-async', updatedUsers);
+        }
+        ref.read(usersAsyncQueryProvider.notifier).refetch();
+        // Remove individual user cache entry
+        queryClient.removeQueries('user-$id');
+      },
+      onSuccess: (_, id) async {
+        final queryClient = ref.read(queryClientProvider);
+        print('User $id deleted successfully');
+        
+        // Invalidate queries to ensure consistency
+        queryClient.invalidateQueries('users-async', markAsStale: true);
+        queryClient.invalidateQueries('userSearch');
+        queryClient.removeQueries('user-$id');
+      },
+      onError: (error, id, stackTrace) async {
+        final queryClient = ref.read(queryClientProvider);
+        print('Failed to delete user $id: $error');
+        
+        // Rollback optimistic update
+        queryClient.invalidateQueries('users-async');
+      },
+    ),
+  ),
+);
