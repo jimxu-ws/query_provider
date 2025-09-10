@@ -1,11 +1,11 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:meta/meta.dart';
 
-import 'query_state.dart';
 import 'mutation_options.dart';
 import 'query_client.dart';
+import 'query_state.dart';
 
 /// A function that performs a mutation
 typedef MutationFunction<TData, TVariables> = Future<TData> Function(TVariables variables);
@@ -134,16 +134,16 @@ extension MutationStateExtensions<T> on MutationState<T> {
   })=>switch (this) {
       MutationIdle<T>() => idle?.call(),
       MutationLoading<T>() => loading?.call(),
-      MutationSuccess<T> successState => success?.call(successState.data),
-      MutationError<T> errorState => error?.call(errorState.error, errorState.stackTrace),
+      final MutationSuccess<T> successState => success?.call(successState.data),
+      final MutationError<T> errorState => error?.call(errorState.error, errorState.stackTrace),
     };
   
 
   /// Map the data if the mutation is successful
   MutationState<R> map<R>(R Function(T data) mapper) =>switch (this) {
-      MutationSuccess<T> success => MutationSuccess(mapper(success.data)),
+      final MutationSuccess<T> success => MutationSuccess(mapper(success.data)),
       MutationIdle<T>() => MutationIdle<R>(),
       MutationLoading<T>() => MutationLoading<R>(),
-      MutationError<T> error => MutationError<R>(error.error, stackTrace: error.stackTrace),
+      final MutationError<T> error => MutationError<R>(error.error, stackTrace: error.stackTrace),
     };
 }
