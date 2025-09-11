@@ -9,16 +9,35 @@ import 'query_state.dart';
 
 /// A function that performs a mutation
 typedef MutationFunction<TData, TVariables> = Future<TData> Function(TVariables variables);
+/// A function that performs a create mutation with a reference
+typedef CreateMutationFunctionWithRef<TData, TVariables> = Future<TData> Function(Ref ref, TVariables variables);
+/// A function that performs a update mutation with a reference
+typedef UpdateMutationFunctionWithRef<TData, TVariables, TParam> = Future<TData> Function(Ref ref, TVariables variables, TParam param);
+/// A function that performs a delete mutation with a reference
+typedef DeleteMutationFunctionWithRef<TData, TParam> = Future<TData> Function(Ref ref, TParam param);
+/// Callback called on successful mutation
+typedef OnSuccessFunctionWithRef<TData, TVariables> = void Function(Ref ref, TData data, TVariables variables);
+/// Callback called on mutation error
+typedef OnErrorFunctionWithRef<TData, TVariables> = void Function(Ref ref, TVariables variables, Object error, StackTrace? stackTrace);
+/// Callback called before mutation starts (useful for optimistic updates)
+typedef OnMutateFunctionWithRef<TData, TVariables> = Future<void> Function(Ref ref, TVariables variables);
+
+/// Callback called on successful mutation
+typedef OnUpdateSuccessFunctionWithRef<TData, TVariables, TParam> = void Function(Ref ref, TData data, TVariables variables, TParam param);
+/// Callback called on mutation error
+typedef OnUpdateErrorFunctionWithRef<TData, TVariables, TParam> = void Function(Ref ref, TVariables variables, TParam param, Object error, StackTrace? stackTrace);
+/// Callback called before mutation starts (useful for optimistic updates)
+typedef OnUpdateMutateFunctionWithRef<TData, TVariables, TParam> = Future<void> Function(Ref ref, TVariables variables, TParam param);
 
 /// Notifier for managing mutation state
 class MutationNotifier<TData, TVariables> extends StateNotifier<MutationState<TData>>
     with QueryClientMixin {
   MutationNotifier({
-    required this.mutationFn,
+    required this.mutationFunction,
     required this.options,
   }) : super(const MutationIdle());
 
-  final MutationFunction<TData, TVariables> mutationFn;
+  final MutationFunction<TData, TVariables> mutationFunction;
   final MutationOptions<TData, TVariables> options;
 
   int _retryCount = 0;
@@ -31,7 +50,7 @@ class MutationNotifier<TData, TVariables> extends StateNotifier<MutationState<TD
       // Call onMutate callback for optimistic updates
       await options.onMutate?.call(variables);
 
-      final data = await mutationFn(variables);
+      final data = await mutationFunction(variables);
       state = MutationSuccess(data);
       _retryCount = 0;
 
@@ -53,7 +72,7 @@ class MutationNotifier<TData, TVariables> extends StateNotifier<MutationState<TD
       _retryCount = 0;
 
       // Call error callback
-      options.onError?.call(error, variables, stackTrace);
+      options.onError?.call(variables, error, stackTrace);
 
       rethrow;
     }
@@ -67,14 +86,74 @@ class MutationNotifier<TData, TVariables> extends StateNotifier<MutationState<TD
 }
 
 /// Provider for creating mutations
-StateNotifierProvider<MutationNotifier<TData, TVariables>, MutationState<TData>> mutationProvider<TData, TVariables>({
+StateNotifierProvider<MutationNotifier<TData, TVariables>, MutationState<TData>> createProvider<TData, TVariables>({
   required String name,
-  required MutationFunction<TData, TVariables> mutationFn,
-  MutationOptions<TData, TVariables> options = const MutationOptions(),
+  required CreateMutationFunctionWithRef<TData, TVariables> mutationFn,
+  int? retry = 0,
+  Duration? retryDelay = const Duration(seconds: 1),
+  OnSuccessFunctionWithRef<TData, TVariables>? onSuccess,
+  OnErrorFunctionWithRef<TData, TVariables>? onError,
+  OnMutateFunctionWithRef<TData, TVariables>? onMutate,
 }) => StateNotifierProvider<MutationNotifier<TData, TVariables>, MutationState<TData>>(
     (ref) => MutationNotifier<TData, TVariables>(
-      mutationFn: mutationFn,
-      options: options,
+      mutationFunction: (TVariables variables){
+        return mutationFn(ref, variables);
+      },
+      options: MutationOptions(
+        retry: retry ?? 0,
+        retryDelay: retryDelay ?? const Duration(seconds: 1),
+        onSuccess: (data, variables) => onSuccess?.call(ref, data, variables),
+        onError: (variables, error, stackTrace) => onError?.call(ref, variables, error, stackTrace),
+        onMutate: (variables) => onMutate?.call(ref,variables)??Future<void>.value(),
+      ),
+    ),
+    name: name,
+  );
+
+/// Provider for updating mutations with parameters (family pattern)
+StateNotifierProviderFamily<MutationNotifier<TData, TVariables>, MutationState<TData>, TParam> updateProviderWithParams<TData, TVariables, TParam>({
+  required String name,
+  required UpdateMutationFunctionWithRef<TData, TVariables, TParam> mutationFn,
+  int? retry = 0,
+  Duration? retryDelay = const Duration(seconds: 1),
+  OnUpdateSuccessFunctionWithRef<TData, TVariables, TParam>? onSuccess,
+  OnUpdateErrorFunctionWithRef<TData, TVariables, TParam>? onError,
+  OnUpdateMutateFunctionWithRef<TData, TVariables, TParam>? onMutate,
+}) => StateNotifierProvider.family<MutationNotifier<TData, TVariables>, MutationState<TData>, TParam>(
+    (ref, TParam param) => MutationNotifier<TData, TVariables>(
+      mutationFunction: (TVariables variables) => mutationFn(ref, variables, param),
+      options: MutationOptions(
+        retry: retry ?? 0,
+        retryDelay: retryDelay ?? const Duration(seconds: 1),
+        onSuccess: (data, variables) => onSuccess?.call(ref, data, variables, param),
+        onError: (variables, error, stackTrace) => onError?.call(ref, variables, param, error, stackTrace),
+        onMutate: (variables) => onMutate?.call(ref, variables, param) ?? Future<void>.value(),
+      ),
+    ),
+    name: name,
+  );
+
+/// Provider for deleting mutations with parameters (family pattern)
+StateNotifierProviderFamily<MutationNotifier<TData, TParam>, MutationState<TData>, TParam> deleteProviderWithParams<TData, TParam>({
+  required String name,
+  required DeleteMutationFunctionWithRef<TData, TParam> mutationFn,
+  int? retry = 0,
+  Duration? retryDelay = const Duration(seconds: 1),
+  OnSuccessFunctionWithRef<TData, TParam>? onSuccess,
+  OnErrorFunctionWithRef<TData, TParam>? onError,
+  OnMutateFunctionWithRef<TData, TParam>? onMutate,
+}) => StateNotifierProvider.family<MutationNotifier<TData, TParam>, MutationState<TData>, TParam>(
+    (ref, TParam param) => MutationNotifier<TData, TParam>(
+      mutationFunction: (TParam param){
+        return mutationFn(ref, param);
+      },
+      options: MutationOptions(
+        retry: retry ?? 0,
+        retryDelay: retryDelay ?? const Duration(seconds: 1),
+        onSuccess: (data, param) => onSuccess?.call(ref, data, param),
+        onError: (param, error, stackTrace) => onError?.call(ref, param, error, stackTrace),
+        onMutate: (param) => onMutate?.call(ref, param) ?? Future<void>.value(),
+      ),
     ),
     name: name,
   );
@@ -112,7 +191,7 @@ class MutationResult<TData, TVariables> {
 }
 
 /// Extension to create a mutation result from a provider
-extension MutationProviderExtension<TData, TVariables> on StateNotifierProvider<MutationNotifier<TData, TVariables>, MutationState<TData>> {
+extension MutationProviderExtension<TData, TVariables, TParam> on StateNotifierProvider<MutationNotifier<TData, TVariables>, MutationState<TData>> {
   /// Create a mutation result that can be used in widgets
   MutationResult<TData, TVariables> use(WidgetRef ref) {
     final notifier = ref.read(this.notifier);

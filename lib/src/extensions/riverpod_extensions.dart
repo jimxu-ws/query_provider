@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../mutation_options.dart';
+import '../mutation_provider.dart';
 import '../query_cache.dart';
 import '../query_client.dart';
 import '../query_options.dart';
-import '../query_state.dart';
-import '../mutation_options.dart';
 import '../query_provider.dart';
-import '../mutation_provider.dart';
+import '../query_state.dart';
 
 /// Utility functions for easier integration with @riverpod
 class QueryUtils {
@@ -22,7 +22,7 @@ class QueryUtils {
   /// ```
   static StateNotifierProvider<QueryNotifier<T>, QueryState<T>> query<T>({
     required String name,
-    required Future<T> Function() queryFn,
+    required QueryFunctionWithRef<T> queryFn,
     QueryOptions<T>? options,
   }) => queryProvider<T>(
       name: name,
@@ -42,14 +42,34 @@ class QueryUtils {
   ///   ),
   /// );
   /// ```
-  static StateNotifierProvider<MutationNotifier<T, TVariables>, MutationState<T>> mutation<T, TVariables>({
+  static StateNotifierProvider<MutationNotifier<T, TVariables>, MutationState<T>> createMutationWithOptions<T, TVariables>({
     required String name,
-    required Future<T> Function(TVariables) mutationFn,
+    required CreateMutationFunctionWithRef<T, TVariables> mutationFn,
     MutationOptions<T, TVariables>? options,
-  }) => mutationProvider<T, TVariables>(
+  }) => createProvider<T, TVariables>(
       name: name,
       mutationFn: mutationFn,
-      options: options ?? MutationOptions<T, TVariables>(),
+      onSuccess: (ref, data, variables) => options?.onSuccess?.call(data, variables),
+      onError: (ref, variables, error, stackTrace) => options?.onError?.call(variables, error, stackTrace),
+      onMutate: (ref, variables) => options?.onMutate?.call(variables)??Future<void>.value(),
+    );
+
+  /// Create a mutation provider from a simple function
+  static StateNotifierProvider<MutationNotifier<T, TVariables>, MutationState<T>> createMutation<T, TVariables>({
+    required String name,
+    required CreateMutationFunctionWithRef<T, TVariables> mutationFn,
+    int? retry = 0,
+    Duration? retryDelay = const Duration(seconds: 1),
+    OnSuccessFunctionWithRef<T, TVariables>? onSuccess,
+    OnErrorFunctionWithRef<T, TVariables>? onError,
+    OnMutateFunctionWithRef<T, TVariables>? onMutate,
+  }) => createProvider<T, TVariables>(
+      name: name,
+      mutationFn: mutationFn,
+      onSuccess: onSuccess,
+      onError: onError,
+      onMutate: onMutate,
+
     );
 
   /// Create a cached data fetcher with automatic cache key generation

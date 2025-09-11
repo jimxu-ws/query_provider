@@ -300,7 +300,7 @@ class _MutationsTabState extends ConsumerState<MutationsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final createUserMutation = ref.watch(createUserMutationProvider(null));
+    final createUserMutation = ref.watch(createUserMutationProvider);
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -341,7 +341,7 @@ class _MutationsTabState extends ConsumerState<MutationsTab> {
                     }
 
                     try {
-                      await ref.read(createUserMutationProvider(null).notifier).mutate({
+                      await ref.read(createUserMutationProvider.notifier).mutate({
                         'name': _nameController.text,
                         'email': _emailController.text,
                       });

@@ -33,7 +33,7 @@ class ServerDataService {
 // 🔄 Lifecycle-aware server status query
 final serverStatusProvider = queryProvider<Map<String, dynamic>>(
   name: 'server-status',
-  queryFn: ServerDataService.getServerStatus,
+  queryFn: (ref) => ServerDataService.getServerStatus(),
   options: const QueryOptions(
     // ⏰ Refetch every 10 seconds when app is active
     refetchInterval: Duration(seconds: 10),
@@ -55,7 +55,7 @@ final serverStatusProvider = queryProvider<Map<String, dynamic>>(
 // 📱 Real-time notifications query
 final notificationsProvider = queryProvider<List<String>>(
   name: 'notifications',
-  queryFn: ServerDataService.getRealtimeNotifications,
+  queryFn: (ref) => ServerDataService.getRealtimeNotifications(),
   options: const QueryOptions(
     // ⚡ Frequent updates when app is active
     refetchInterval: Duration(seconds: 3),

@@ -18,7 +18,7 @@ class NewsService {
 // Query provider with background refetching
 final newsProvider = queryProvider<List<String>>(
   name: 'latest-news',
-  queryFn: NewsService.getLatestNews,
+  queryFn: (ref) => NewsService.getLatestNews(),
   options: const QueryOptions(
     // 🔄 Background refetch every 30 seconds
     refetchInterval: Duration(seconds: 30),

@@ -50,7 +50,7 @@ class DesktopDataService {
 // 🖥️ System info query with window focus refetching
 final systemInfoProvider = queryProvider<Map<String, dynamic>>(
   name: 'system-info',
-  queryFn: DesktopDataService.getSystemInfo,
+  queryFn: (ref) => DesktopDataService.getSystemInfo(),
   options: const QueryOptions(
     // ⏰ Regular updates every 15 seconds
     refetchInterval: Duration(seconds: 15),
@@ -74,7 +74,7 @@ final systemInfoProvider = queryProvider<Map<String, dynamic>>(
 // 📊 Process list query
 final processListProvider = queryProvider<List<Map<String, dynamic>>>(
   name: 'process-list',
-  queryFn: DesktopDataService.getActiveProcesses,
+  queryFn: (ref) => DesktopDataService.getActiveProcesses(),
   options: const QueryOptions(
     // ⚡ Frequent updates for real-time monitoring
     refetchInterval: Duration(seconds: 5),

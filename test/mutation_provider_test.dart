@@ -40,9 +40,9 @@ void main() {
     });
 
     test('should start in idle state', () {
-      final provider = mutationProvider<String, Map<String, dynamic>>(
+      final provider = createProvider<String, Map<String, dynamic>>(
         name: 'create-user',
-        mutationFn: MockMutationService.createUser,
+        mutationFn: (ref, variables) => MockMutationService.createUser(variables),
       );
       
       final state = container.read(provider);
@@ -52,9 +52,9 @@ void main() {
     });
 
     test('should handle successful mutation', () async {
-      final provider = mutationProvider<String, Map<String, dynamic>>(
+      final provider = createProvider<String, Map<String, dynamic>>(
         name: 'create-user',
-        mutationFn: MockMutationService.createUser,
+        mutationFn: (ref, variables) => MockMutationService.createUser(variables),
       );
       
       final states = <MutationState<String>>[];
@@ -83,9 +83,9 @@ void main() {
     test('should handle mutation error', () async {
       MockMutationService.shouldFail = true;
       
-      final provider = mutationProvider<String, Map<String, dynamic>>(
+      final provider = createProvider<String, Map<String, dynamic>>(
         name: 'create-user',
-        mutationFn: MockMutationService.createUser,
+        mutationFn: (ref, variables) => MockMutationService.createUser(variables),
       );
       
       final states = <MutationState<String>>[];
@@ -113,9 +113,9 @@ void main() {
     });
 
     test('should reset mutation state', () async {
-      final provider = mutationProvider<String, Map<String, dynamic>>(
+      final provider = createProvider<String, Map<String, dynamic>>(
         name: 'create-user',
-        mutationFn: MockMutationService.createUser,
+        mutationFn: (ref, variables) => MockMutationService.createUser(variables),
       );
       
       // Perform mutation

@@ -12,9 +12,11 @@ import 'window_focus_manager.dart';
 
 /// A function that fetches data for a query
 typedef QueryFunction<T> = Future<T> Function();
+typedef QueryFunctionWithRef<T> = Future<T> Function(Ref ref);
 
 /// A function that fetches data with parameters
 typedef QueryFunctionWithParams<T, P> = Future<T> Function(P params);
+typedef QueryFunctionWithParamsWithRef<T, P> = Future<T> Function(Ref ref, P params);
 
 // QueryCacheEntry is now defined in query_cache.dart
 
@@ -22,14 +24,14 @@ typedef QueryFunctionWithParams<T, P> = Future<T> Function(P params);
 class QueryNotifier<T> extends StateNotifier<QueryState<T>>
     with QueryClientMixin {
   QueryNotifier({
-    required this.queryFn,
+    required this.queryFunction,
     required this.options,
     required this.queryKey,
   }) : super(const QueryIdle()) {
     _initialize();
   }
 
-  final QueryFunction<T> queryFn;
+  final QueryFunction<T> queryFunction;
   final QueryOptions<T> options;
   final String queryKey;
 
@@ -95,7 +97,7 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
     try {
       debugPrint('Querying data from server in query notifier for key $queryKey');
 
-      final data = await queryFn();
+      final data = await queryFunction();
       final now = DateTime.now();
       
       // Cache the result
@@ -286,11 +288,13 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
 /// Provider for creating queries
 StateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProvider<T>({
   required String name,
-  required QueryFunction<T> queryFn,
+  required QueryFunctionWithRef<T> queryFn,
   QueryOptions<T> options = const QueryOptions(),
 }) => StateNotifierProvider<QueryNotifier<T>, QueryState<T>>(
     (ref) => QueryNotifier<T>(
-      queryFn: queryFn,
+      queryFunction: (){
+        return queryFn(ref);
+      },
       options: options,
       queryKey: name,
     ),
@@ -301,11 +305,13 @@ StateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProvider<T>({
 /// Provider family for creating queries with parameters
 StateNotifierProviderFamily<QueryNotifier<T>, QueryState<T>, P> queryProviderFamily<T, P>({
   required String name,
-  required QueryFunctionWithParams<T, P> queryFn,
+  required QueryFunctionWithParamsWithRef<T, P> queryFn,
   QueryOptions<T> options = const QueryOptions(),
 }) => StateNotifierProvider.family<QueryNotifier<T>, QueryState<T>, P>(
     (ref, param) => QueryNotifier<T>(
-      queryFn: () => queryFn(param),
+      queryFunction: () { 
+        return queryFn(ref, param);
+      },
       options: options,
       queryKey: '$name-$param',
     ),
@@ -317,11 +323,13 @@ StateNotifierProviderFamily<QueryNotifier<T>, QueryState<T>, P> queryProviderFam
 StateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProviderWithParams<T, P>({
   required String name,
   required P params, // Should be const for best practices
-  required QueryFunctionWithParams<T, P> queryFn,
+  required QueryFunctionWithParamsWithRef<T, P> queryFn,
   QueryOptions<T> options = const QueryOptions(),
 }) => StateNotifierProvider<QueryNotifier<T>, QueryState<T>>(
     (ref) => QueryNotifier<T>(
-      queryFn: () => queryFn(params),
+      queryFunction: () {
+        return queryFn(ref, params);
+      },
       options: options,
       queryKey: '$name-$params',
     ),

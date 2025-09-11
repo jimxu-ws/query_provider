@@ -79,7 +79,7 @@ class StockService {
 // 🌤️ Weather query - Updates every 2 minutes when app is active
 final weatherProvider = queryProvider<Map<String, dynamic>>(
   name: 'current-weather',
-  queryFn: WeatherService.getCurrentWeather,
+  queryFn: (ref) => WeatherService.getCurrentWeather(),
   options: const QueryOptions(
     // ⏰ Regular updates when app is active
     refetchInterval: Duration(minutes: 2),
@@ -101,7 +101,7 @@ final weatherProvider = queryProvider<Map<String, dynamic>>(
 // 📰 News query - Frequent updates for breaking news
 final newsProvider = queryProvider<List<Map<String, dynamic>>>(
   name: 'breaking-news',
-  queryFn: NewsService.getBreakingNews,
+  queryFn: (ref) => NewsService.getBreakingNews(),
   options: const QueryOptions(
     // ⚡ Frequent updates for breaking news
     refetchInterval: Duration(seconds: 30),
@@ -122,7 +122,7 @@ final newsProvider = queryProvider<List<Map<String, dynamic>>>(
 // 📈 Stock prices - Real-time when active, paused in background
 final stocksProvider = queryProvider<List<Map<String, dynamic>>>(
   name: 'stock-prices',
-  queryFn: StockService.getStockPrices,
+  queryFn: (ref) => StockService.getStockPrices(),
   options: const QueryOptions(
     // 🚀 Very frequent updates for real-time trading
     refetchInterval: Duration(seconds: 10),

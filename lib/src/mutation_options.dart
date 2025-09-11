@@ -1,5 +1,12 @@
 import 'package:meta/meta.dart';
 
+/// Callback called on successful mutation
+typedef OnSuccessFunction<TData, TVariables> = void Function(TData data, TVariables variables);
+/// Callback called on mutation error
+typedef OnErrorFunction<TData, TVariables> = void Function(TVariables variables, Object error, StackTrace? stackTrace);
+/// Callback called before mutation starts (useful for optimistic updates)
+typedef OnMutateFunction<TData, TVariables> = Future<void> Function(TVariables variables);
+
 /// Configuration options for a mutation
 @immutable
 class MutationOptions<TData, TVariables> {
@@ -18,20 +25,20 @@ class MutationOptions<TData, TVariables> {
   final Duration retryDelay;
 
   /// Callback called on successful mutation
-  final void Function(TData data, TVariables variables)? onSuccess;
+  final OnSuccessFunction<TData, TVariables>? onSuccess;
 
   /// Callback called on mutation error
-  final void Function(Object error, TVariables variables, StackTrace? stackTrace)? onError;
+  final OnErrorFunction<TData, TVariables>? onError;
 
   /// Callback called before mutation starts (useful for optimistic updates)
-  final Future<void> Function(TVariables variables)? onMutate;
+  final OnMutateFunction<TData, TVariables>? onMutate;
 
   MutationOptions<TData, TVariables> copyWith({
     int? retry,
     Duration? retryDelay,
-    void Function(TData data, TVariables variables)? onSuccess,
-    void Function(Object error, TVariables variables, StackTrace? stackTrace)? onError,
-    Future<void> Function(TVariables variables)? onMutate,
+    OnSuccessFunction<TData, TVariables>? onSuccess,
+    OnErrorFunction<TData, TVariables>? onError,
+    OnMutateFunction<TData, TVariables>? onMutate,
   }) => MutationOptions<TData, TVariables>(
       retry: retry ?? this.retry,
       retryDelay: retryDelay ?? this.retryDelay,

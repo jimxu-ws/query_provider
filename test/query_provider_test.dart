@@ -58,7 +58,7 @@ void main() {
     test('should start in idle state', () {
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
       );
       
       final state = container.read(provider);
@@ -70,7 +70,7 @@ void main() {
     test('should fetch data on mount when refetchOnMount is true', () async {
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(refetchOnMount: true),
       );
       
@@ -89,7 +89,7 @@ void main() {
     test('should not fetch data on mount when refetchOnMount is false', () async {
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(refetchOnMount: false),
       );
       
@@ -109,7 +109,7 @@ void main() {
       
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(refetchOnMount: true),
       );
       
@@ -135,7 +135,7 @@ void main() {
       
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(refetchOnMount: true),
       );
       
@@ -155,7 +155,7 @@ void main() {
       
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(
           refetchOnMount: true,
           retry: 2,
@@ -192,7 +192,7 @@ void main() {
       
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: flakyFetch,
+        queryFn: (ref) => flakyFetch(),
         options: const QueryOptions(
           refetchOnMount: true,
           retry: 3,
@@ -215,7 +215,7 @@ void main() {
     test('should refetch manually', () async {
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(refetchOnMount: true),
       );
       
@@ -240,7 +240,7 @@ void main() {
     test('should invalidate and refetch', () async {
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(refetchOnMount: true),
       );
       
@@ -268,7 +268,7 @@ void main() {
     test('should set data manually', () async {
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(refetchOnMount: false),
       );
       
@@ -287,7 +287,7 @@ void main() {
     test('should get cached data', () async {
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(refetchOnMount: true),
       );
       
@@ -304,7 +304,7 @@ void main() {
     test('should handle disabled query', () async {
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(
           refetchOnMount: true,
           enabled: false,
@@ -325,7 +325,7 @@ void main() {
     test('should use cached data when available and fresh', () async {
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(
           refetchOnMount: true,
           staleTime: Duration(minutes: 5),
@@ -355,7 +355,7 @@ void main() {
     test('should show refetching state with keepPreviousData', () async {
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(
           refetchOnMount: true,
           keepPreviousData: true,
@@ -387,7 +387,7 @@ void main() {
       
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: QueryOptions(
           refetchOnMount: true,
           onSuccess: (data) {
@@ -413,7 +413,7 @@ void main() {
       
       final provider = queryProvider<String>(
         name: 'test-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: QueryOptions(
           refetchOnMount: true,
           retry: 0, // No retries
@@ -452,7 +452,7 @@ void main() {
     test('should create different instances for different parameters', () async {
       final provider = queryProviderFamily<String, String>(
         name: 'user-query',
-        queryFn: MockApiService.fetchDataWithParam,
+        queryFn: (ref, param) => MockApiService.fetchDataWithParam(param),
         options: const QueryOptions(refetchOnMount: true),
       );
       
@@ -476,7 +476,7 @@ void main() {
     test('should reuse same instance for same parameter', () async {
       final provider = queryProviderFamily<String, String>(
         name: 'user-query',
-        queryFn: MockApiService.fetchDataWithParam,
+        queryFn: (ref, param) => MockApiService.fetchDataWithParam(param),
         options: const QueryOptions(refetchOnMount: true),
       );
       
@@ -493,7 +493,7 @@ void main() {
     test('should handle different parameter types', () async {
       final provider = queryProviderFamily<String, int>(
         name: 'id-query',
-        queryFn: (id) => MockApiService.fetchDataWithParam(id.toString()),
+        queryFn: (ref, id) => MockApiService.fetchDataWithParam(id.toString()),
         options: const QueryOptions(refetchOnMount: true),
       );
       
@@ -533,7 +533,7 @@ void main() {
       final provider = queryProviderWithParams<String, String>(
         name: 'fixed-query',
         params: params,
-        queryFn: MockApiService.fetchDataWithParam,
+        queryFn: (ref, param) => MockApiService.fetchDataWithParam(param),
         options: const QueryOptions(refetchOnMount: true),
       );
       
@@ -555,7 +555,7 @@ void main() {
       final provider = queryProviderWithParams<String, String>(
         name: 'param-query',
         params: params,
-        queryFn: MockApiService.fetchDataWithParam,
+        queryFn: (ref, param) => MockApiService.fetchDataWithParam(param),
         options: const QueryOptions(refetchOnMount: true),
       );
       
@@ -588,7 +588,7 @@ void main() {
     test('should handle app lifecycle changes', () async {
       final provider = queryProvider<String>(
         name: 'lifecycle-query',
-        queryFn: MockApiService.fetchData,
+        queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(
           refetchOnMount: true,
           refetchOnAppFocus: true,
