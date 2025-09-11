@@ -67,6 +67,12 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
     }
   }
 
+  void _safeState(QueryState<T> state) {
+    if(mounted){
+      this.state = state;
+    }
+  }
+
   /// Fetch data
   Future<void> _fetch({bool forceFetchRemote = false}) async {
     if (!options.enabled) {
@@ -79,19 +85,19 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
     final cachedEntry = _getCachedEntry();
     if (!forceFetchRemote && cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
       debugPrint('Using cached data in query notifier for key $queryKey');
-      state = QuerySuccess(cachedEntry.data as T, fetchedAt: cachedEntry.fetchedAt);
+      _safeState(QuerySuccess(cachedEntry.data as T, fetchedAt: cachedEntry.fetchedAt));
       return;
     }
 
     // Determine loading state
-    if (options.keepPreviousData && state.hasData) {
+    if (mounted && options.keepPreviousData && state.hasData) {
       debugPrint('Using state data in query notifier for key $queryKey');
-      state = QueryRefetching(state.data as T, fetchedAt: cachedEntry?.fetchedAt);
+      _safeState(QueryRefetching(state.data as T, fetchedAt: cachedEntry?.fetchedAt));
     }else if(options.keepPreviousData && cachedEntry != null && cachedEntry.hasData){
       debugPrint('Using stale cached data in query notifier for key $queryKey');
-      state = QueryRefetching(cachedEntry.data as T, fetchedAt: cachedEntry.fetchedAt);
+      _safeState(QueryRefetching(cachedEntry.data as T, fetchedAt: cachedEntry.fetchedAt));
     }else {
-      state = const QueryLoading();
+      _safeState(const QueryLoading());
     }
 
     try {
@@ -107,7 +113,7 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
         options: options,
       ));
 
-      state = QuerySuccess(data, fetchedAt: now);
+      _safeState(QuerySuccess(data, fetchedAt: now));
       _retryCount = 0;
 
       // Call success callback
@@ -127,7 +133,7 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
         options: options,
       );
 
-      state = QueryError(error, stackTrace: stackTrace);
+      _safeState(QueryError(error, stackTrace: stackTrace));
       _retryCount = 0;
 
       // Call error callback
@@ -152,7 +158,7 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
       fetchedAt: now,
       options: options,
     ));
-    state = QuerySuccess(data, fetchedAt: now);
+    _safeState(QuerySuccess(data, fetchedAt: now));
   }
 
   /// Get current cached data
@@ -249,10 +255,10 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
     _cache.addListener<T>(queryKey, (entry) {
       if (entry?.hasData ?? false) {
         // Update state when cache data changes externally (e.g., optimistic updates)
-        state = QuerySuccess(entry!.data as T, fetchedAt: entry.fetchedAt);
+        _safeState(QuerySuccess(entry!.data as T, fetchedAt: entry.fetchedAt));
       } else if (entry == null) {
         // Cache entry was removed, reset to idle
-        state = const QueryIdle();
+        _safeState(const QueryIdle());
       }
       debugPrint('Cache listener called for key $queryKey in query notifier, change state to ${state.runtimeType}');
     });

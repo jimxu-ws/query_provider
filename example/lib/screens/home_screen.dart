@@ -239,8 +239,14 @@ class UserListTile extends ConsumerWidget {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
+              
+              if(!ref.context.mounted){
+                return;
+              }
+              
               try {
-                await ref.read(deleteUserMutationProvider(user.id).notifier).mutate(user.id);
+                final notifier = ref.read(deleteUserMutationProvider(user.id).notifier);
+                await notifier.mutate(user.id);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('${user.name} deleted successfully!')),

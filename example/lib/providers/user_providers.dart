@@ -18,7 +18,7 @@ final usersQueryProvider = queryProvider<List<User>>(
 
 final usersAsyncQueryProvider = asyncQueryProvider<List<User>>(
   name: 'users-async',
-  queryFn: ApiService.fetchUsers,
+  queryFn: (ref) => ApiService.fetchUsers(),
   options: const QueryOptions<List<User>>(
     staleTime: Duration(minutes: 5),
     cacheTime: Duration(minutes: 10),
@@ -28,7 +28,7 @@ final usersAsyncQueryProvider = asyncQueryProvider<List<User>>(
 /// Async query provider family for fetching individual users by ID
 final userAsyncQueryProviderFamily = asyncQueryProviderFamily<User, int>(
   name: 'user-async',
-  queryFn: ApiService.fetchUser,
+  queryFn: (ref, userId) => ApiService.fetchUser(userId),
   options: const QueryOptions<User>(
     staleTime: Duration(minutes: 3),
     cacheTime: Duration(minutes: 15),

@@ -42,16 +42,22 @@ class MutationNotifier<TData, TVariables> extends StateNotifier<MutationState<TD
 
   int _retryCount = 0;
 
+  void _safeState(MutationState<TData> state) {
+    if(mounted){
+      this.state = state;
+    }
+  }
+
   /// Execute the mutation
   Future<TData> mutate(TVariables variables) async {
-    state = const MutationLoading();
+    _safeState(const MutationLoading());
 
     try {
       // Call onMutate callback for optimistic updates
       await options.onMutate?.call(variables);
 
       final data = await mutationFunction(variables);
-      state = MutationSuccess(data);
+      _safeState(MutationSuccess(data));
       _retryCount = 0;
 
       // Call success callback
@@ -68,7 +74,7 @@ class MutationNotifier<TData, TVariables> extends StateNotifier<MutationState<TD
         return mutate(variables);
       }
 
-      state = MutationError(error, stackTrace: stackTrace);
+      _safeState(MutationError(error, stackTrace: stackTrace));
       _retryCount = 0;
 
       // Call error callback
@@ -80,7 +86,7 @@ class MutationNotifier<TData, TVariables> extends StateNotifier<MutationState<TD
 
   /// Reset the mutation state to idle
   void reset() {
-    state = const MutationIdle();
+    _safeState(const MutationIdle());
     _retryCount = 0;
   }
 }

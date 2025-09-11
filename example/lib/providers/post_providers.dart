@@ -32,7 +32,7 @@ StateNotifierProvider<QueryNotifier<List<Post>>, QueryState<List<Post>>> userPos
 /// Async query provider family for fetching posts by user ID
 final userPostsAsyncQueryProviderFamily = asyncQueryProviderFamily<List<Post>, int>(
   name: 'user-posts-async',
-  queryFn: ApiService.fetchUserPosts,
+  queryFn: (ref, userId) => ApiService.fetchUserPosts(userId),
   options: const QueryOptions<List<Post>>(
     staleTime: Duration(minutes: 3),
     cacheTime: Duration(minutes: 10),
