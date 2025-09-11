@@ -180,9 +180,9 @@ class WindowFocusExample extends ConsumerWidget {
                   color: windowHasFocus ? Colors.blue : Colors.grey,
                 ),
                 const SizedBox(width: 8),
-                Text(
+                const Text(
                   'Window Focus Status',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
