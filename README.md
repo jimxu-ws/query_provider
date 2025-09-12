@@ -1,497 +1,795 @@
-# Query Provider
+# QueryProvider - React Query for Flutter/Riverpod
 
-A React Query-like data fetching library for Flutter using Riverpod. This library provides powerful data synchronization for Flutter applications with features like caching, background updates, optimistic updates, and more.
+A powerful data fetching and caching library for Flutter applications built on top of Riverpod, inspired by TanStack Query (React Query). QueryProvider solves common data management challenges in Flutter apps by providing intelligent caching, background updates, optimistic updates, and seamless state synchronization.
 
-## Features
+## 📋 Table of Contents
 
-- 🚀 **Declarative Data Fetching**: Simple and intuitive API for fetching data
-- 💾 **Intelligent Caching**: Automatic caching with configurable stale time and cache time
-- 🔄 **Background Updates**: Automatic refetching when data becomes stale
-- ⚡ **Optimistic Updates**: Update UI optimistically before server confirms changes
-- 🔁 **Retry Logic**: Built-in retry mechanism with configurable attempts and delays
-- 📄 **Pagination Support**: Infinite queries for paginated data
-- 🎯 **Mutations**: Handle POST, PUT, DELETE operations with automatic cache updates
-- 🔧 **Flexible Configuration**: Extensive customization options
-- 🎨 **Type Safe**: Full TypeScript-like type safety with Dart generics
-- 🏗️ **Riverpod Integration**: Built on top of Riverpod for excellent state management
+- [The Problem](#-the-problem)
+- [The Solution](#-the-solution)
+- [Key Features](#-key-features)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Core Concepts](#-core-concepts)
+- [API Reference](#-api-reference)
+- [Advanced Usage](#-advanced-usage)
+- [Comparison](#-comparison)
+- [Migration Guide](#-migration-guide)
 
-## Installation
+## 🚨 The Problem
 
-Add this to your package's `pubspec.yaml` file:
+When building Flutter applications with traditional Riverpod providers, developers face several recurring challenges:
+
+### 1. **Manual Cache Management**
+```dart
+// ❌ Traditional approach - no caching, refetches every time
+final usersProvider = FutureProvider<List<User>>((ref) async {
+  return ApiService.fetchUsers(); // Always hits the network
+});
+```
+
+### 2. **No Background Updates**
+```dart
+// ❌ Data becomes stale, no automatic refresh
+final userProvider = FutureProvider.family<User, int>((ref, id) async {
+  return ApiService.fetchUser(id); // Stale data, no refresh mechanism
+});
+```
+
+### 3. **Complex Loading States**
+```dart
+// ❌ Manual loading state management
+class UserNotifier extends StateNotifier<AsyncValue<User>> {
+  UserNotifier() : super(const AsyncValue.loading());
+  
+  Future<void> fetchUser() async {
+    state = const AsyncValue.loading(); // Manual loading state
+    try {
+      final user = await ApiService.fetchUser();
+      state = AsyncValue.data(user);
+    } catch (error, stackTrace) {
+      state = AsyncValue.error(error, stackTrace); // Manual error handling
+    }
+  }
+}
+```
+
+### 4. **No Optimistic Updates**
+```dart
+// ❌ No way to update UI optimistically
+final updateUserProvider = FutureProvider.family<User, UpdateUserRequest>((ref, request) async {
+  return ApiService.updateUser(request); // UI waits for server response
+});
+```
+
+### 5. **Memory Leaks & Resource Management**
+```dart
+// ❌ Manual cleanup, potential memory leaks
+class DataNotifier extends StateNotifier<List<Data>> {
+  Timer? _timer;
+  
+  @override
+  void dispose() {
+    _timer?.cancel(); // Easy to forget cleanup
+    super.dispose();
+  }
+}
+```
+
+### 6. **No Retry Logic**
+```dart
+// ❌ No automatic retry on failure
+final dataProvider = FutureProvider<Data>((ref) async {
+  try {
+    return await ApiService.fetchData();
+  } catch (e) {
+    // Fails permanently, no retry
+    rethrow;
+  }
+});
+```
+
+### 7. **Duplicated Network Requests**
+```dart
+// ❌ Multiple widgets cause multiple requests
+Widget build(BuildContext context, WidgetRef ref) {
+  final users = ref.watch(usersProvider); // Request #1
+  final moreUsers = ref.watch(usersProvider); // Request #2 (duplicate!)
+  // ...
+}
+```
+
+## 🚀 The Solution
+
+QueryProvider addresses all these problems with a React Query-inspired approach:
+
+### ✅ **Intelligent Caching**
+```dart
+final usersProvider = asyncQueryProvider<List<User>>(
+  name: 'users',
+  queryFn: (ref) => ApiService.fetchUsers(),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 5), // Fresh for 5 minutes
+    cacheTime: Duration(minutes: 30), // Cached for 30 minutes
+  ),
+);
+```
+
+### ✅ **Automatic Background Updates**
+```dart
+final userProvider = asyncQueryProviderFamily<User, int>(
+  name: 'user',
+  queryFn: (ref, userId) => ApiService.fetchUser(userId),
+  options: QueryOptions(
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    refetchOnAppFocus: true, // Refetch when app comes to foreground
+    refetchInterval: Duration(minutes: 10), // Periodic updates
+  ),
+);
+```
+
+### ✅ **Built-in Loading & Error States**
+```dart
+Widget build(BuildContext context, WidgetRef ref) {
+  final usersAsync = ref.watch(usersProvider);
+  
+  return usersAsync.when(
+    loading: () => CircularProgressIndicator(),
+    error: (error, stack) => ErrorWidget(error),
+    data: (users) => UsersList(users),
+  );
+}
+```
+
+### ✅ **Optimistic Updates with Rollback**
+```dart
+final updateUserMutation = mutationProvider<User, UpdateUserRequest>(
+  name: 'update-user',
+  mutationFn: (ref, request) => ApiService.updateUser(request),
+  onMutate: (ref, request) async {
+    final queryClient = ref.read(queryClientProvider);
+    
+    // Optimistic update
+    final currentUser = queryClient.getQueryData<User>('user-${request.id}');
+    queryClient.setQueryData('user-${request.id}', request.toUser());
+    
+    return currentUser; // Return for rollback
+  },
+  onError: (ref, request, error, stackTrace) async {
+    final queryClient = ref.read(queryClientProvider);
+    // Rollback on error
+    queryClient.invalidateQueries('user-${request.id}');
+  },
+);
+```
+
+### ✅ **Automatic Resource Management**
+```dart
+// ✅ Automatic cleanup - no memory leaks
+final dataProvider = asyncQueryProvider<Data>(
+  name: 'data',
+  queryFn: (ref) => ApiService.fetchData(),
+  options: QueryOptions(
+    refetchInterval: Duration(seconds: 30), // Automatically cleaned up
+  ),
+);
+```
+
+### ✅ **Smart Retry Logic**
+```dart
+final dataProvider = asyncQueryProvider<Data>(
+  name: 'data',
+  queryFn: (ref) => ApiService.fetchData(),
+  options: QueryOptions(
+    retry: 3, // Retry 3 times
+    retryDelay: Duration(seconds: 2), // Wait 2 seconds between retries
+  ),
+);
+```
+
+### ✅ **Request Deduplication**
+```dart
+// ✅ Multiple widgets, single request
+Widget build(BuildContext context, WidgetRef ref) {
+  final users1 = ref.watch(usersProvider); // Request once
+  final users2 = ref.watch(usersProvider); // Uses cache
+  // Only one network request!
+}
+```
+
+## 🎯 Key Features
+
+| Feature | Traditional Riverpod | QueryProvider |
+|---------|---------------------|---------------|
+| **Caching** | Manual | ✅ Automatic with `staleTime`/`cacheTime` |
+| **Background Updates** | None | ✅ Window focus, app focus, intervals |
+| **Loading States** | Manual | ✅ Built-in `AsyncValue` handling |
+| **Error Handling** | Manual | ✅ Automatic retry with exponential backoff |
+| **Optimistic Updates** | Complex | ✅ Simple `onMutate`/`onError` callbacks |
+| **Request Deduplication** | None | ✅ Automatic |
+| **Memory Management** | Manual | ✅ Automatic cleanup |
+| **Offline Support** | None | ✅ Cache-first with stale data |
+| **DevTools** | Basic | ✅ Rich query inspection |
+| **TypeScript-like DX** | Good | ✅ Excellent with generics |
+
+## 📦 Installation
+
+Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
   query_provider: ^1.0.0
-  flutter_riverpod: ^2.4.9
+  flutter_riverpod: ^2.6.1
 ```
 
-Then run:
+## 🚀 Quick Start
 
-```bash
-flutter pub get
-```
-
-## Quick Start
-
-### 1. Wrap your app with ProviderScope
+### 1. Setup QueryClient
 
 ```dart
+// main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:query_provider/query_provider.dart';
 
 void main() {
   runApp(
-    const ProviderScope(
+    ProviderScope(
       child: MyApp(),
     ),
   );
 }
 ```
 
-### 2. Create a Query Provider
+### 2. Create Query Providers
 
 ```dart
+// providers/user_providers.dart
 import 'package:query_provider/query_provider.dart';
+import '../models/user.dart';
+import '../services/api_service.dart';
 
-// Define your data fetching function
-Future<List<User>> fetchUsers() async {
-  final response = await http.get(Uri.parse('https://api.example.com/users'));
-  final List<dynamic> data = json.decode(response.body);
-  return data.map((json) => User.fromJson(json)).toList();
-}
-
-// Create a simple query provider
-final usersQueryProvider = queryProvider<List<User>>(
+// Simple query
+final usersProvider = asyncQueryProvider<List<User>>(
   name: 'users',
-  queryFn: fetchUsers,
-  options: const QueryOptions<List<User>>(
+  queryFn: (ref) => ApiService.fetchUsers(),
+  options: QueryOptions(
     staleTime: Duration(minutes: 5),
-    cacheTime: Duration(minutes: 10),
+    cacheTime: Duration(minutes: 30),
   ),
 );
-```
 
-### 2.1. Parameterized Queries
-
-For queries that depend on parameters, you have several options:
-
-```dart
-// Option 1: Function-based approach (simple)
-StateNotifierProvider<QueryNotifier<User>, QueryState<User>> userProvider(int userId) {
-  return queryProvider<User>(
-    name: 'user-$userId',
-    queryFn: () => fetchUser(userId),
-  );
-}
-
-// Option 2: Provider Family (recommended for dynamic parameters)
-final userProviderFamily = queryProviderFamily<User, int>(
+// Parameterized query
+final userProvider = asyncQueryProviderFamily<User, int>(
   name: 'user',
-  queryFn: fetchUser, // fetchUser(int userId) function
+  queryFn: (ref, userId) => ApiService.fetchUser(userId),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 3),
+    refetchOnWindowFocus: true,
+  ),
 );
 
-// Option 3: Fixed parameters approach
-StateNotifierProvider<QueryNotifier<User>, QueryState<User>> specificUserProvider() {
-  return queryProviderWithParams<User, int>(
-    name: 'user',
-    params: 123, // Fixed user ID
-    queryFn: fetchUser,
-  );
-}
-
-// Usage in widgets:
-class UserWidget extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Using Option 1
-    final userState1 = ref.watch(userProvider(123));
-    
-    // Using Option 2 (Provider Family)
-    final userState2 = ref.watch(userProviderFamily(123));
-    
-    // Using Option 3
-    final userState3 = ref.watch(specificUserProvider());
-    
-    return userState1.when(/* ... */);
-  }
-}
+// Mutation
+final createUserMutation = mutationProvider<User, CreateUserRequest>(
+  name: 'create-user',
+  mutationFn: (ref, request) => ApiService.createUser(request),
+  onSuccess: (ref, user, request) async {
+    final queryClient = ref.read(queryClientProvider);
+    queryClient.invalidateQueries('users'); // Refresh users list
+  },
+);
 ```
 
-### 3. Use the Query in Your Widget
+### 3. Use in Widgets
 
 ```dart
+// screens/users_screen.dart
 class UsersScreen extends ConsumerWidget {
-  const UsersScreen({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final usersState = ref.watch(usersQueryProvider);
+    final usersAsync = ref.watch(usersProvider);
+    final createUser = ref.watch(createUserMutation);
 
-    return usersState.when(
-      idle: () => const Text('Ready to load'),
-      loading: () => const CircularProgressIndicator(),
-      success: (users) => ListView.builder(
+    return Scaffold(
+      appBar: AppBar(title: Text('Users')),
+      body: usersAsync.when(
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Error: $error'),
+              ElevatedButton(
+                onPressed: () => ref.refresh(usersProvider),
+                child: Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+        data: (users) => ListView.builder(
         itemCount: users.length,
         itemBuilder: (context, index) {
           final user = users[index];
           return ListTile(
             title: Text(user.name),
             subtitle: Text(user.email),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => UserDetailScreen(userId: user.id),
+                ),
+              ),
           );
         },
       ),
-      error: (error, stackTrace) => Text('Error: $error'),
-      refetching: (users) => Stack(
-        children: [
-          ListView.builder(/* ... */),
-          const Positioned(
-            top: 16,
-            right: 16,
-            child: CircularProgressIndicator(),
-          ),
-        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: createUser.isLoading ? null : () async {
+          try {
+            await ref.read(createUserMutation.notifier).mutate(
+              CreateUserRequest(name: 'New User', email: 'user@example.com'),
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('User created!')),
+            );
+          } catch (error) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $error')),
+            );
+          }
+        },
+        child: createUser.isLoading 
+          ? SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(Icons.add),
       ),
     );
   }
 }
 ```
 
-## Core Concepts
+## 🧠 Core Concepts
 
-### Query States
+### Query Providers
 
-Queries can be in one of several states:
+Query providers handle data fetching with intelligent caching:
 
-- **Idle**: Initial state before any query is executed
-- **Loading**: Query is loading for the first time
-- **Success**: Query has successfully loaded data
-- **Error**: Query has failed with an error
-- **Refetching**: Query is refetching (has previous data but loading new data)
+```dart
+// Basic query
+final todosProvider = asyncQueryProvider<List<Todo>>(
+  name: 'todos',
+  queryFn: (ref) => ApiService.fetchTodos(),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 5), // Data fresh for 5 minutes
+    cacheTime: Duration(minutes: 30), // Keep in cache for 30 minutes
+    retry: 3, // Retry failed requests 3 times
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+  ),
+);
+
+// Parameterized query
+final todoProvider = asyncQueryProviderFamily<Todo, int>(
+  name: 'todo',
+  queryFn: (ref, todoId) => ApiService.fetchTodo(todoId),
+);
+```
+
+### Mutations
+
+Mutations handle data modifications with optimistic updates:
+
+```dart
+final updateTodoMutation = mutationProvider<Todo, UpdateTodoRequest>(
+  name: 'update-todo',
+  mutationFn: (ref, request) => ApiService.updateTodo(request),
+  onMutate: (ref, request) async {
+    // Optimistic update
+    final queryClient = ref.read(queryClientProvider);
+    final previousTodo = queryClient.getQueryData<Todo>('todo-${request.id}');
+    
+    queryClient.setQueryData('todo-${request.id}', request.toTodo());
+    
+    return previousTodo; // For rollback
+  },
+  onError: (ref, request, error, stackTrace) async {
+    // Rollback on error
+    final queryClient = ref.read(queryClientProvider);
+    queryClient.invalidateQueries('todo-${request.id}');
+  },
+  onSuccess: (ref, todo, request) async {
+    // Update related queries
+    final queryClient = ref.read(queryClientProvider);
+    queryClient.invalidateQueries('todos');
+  },
+);
+```
 
 ### Query Options
 
 Configure query behavior with `QueryOptions`:
 
 ```dart
-const QueryOptions<User>(
-  staleTime: Duration(minutes: 5),      // Data is fresh for 5 minutes
-  cacheTime: Duration(minutes: 30),     // Keep in cache for 30 minutes
-  refetchOnMount: true,                 // Refetch when component mounts
-  refetchOnWindowFocus: false,          // Don't refetch on window focus
-  refetchInterval: Duration(seconds: 30), // Auto-refetch every 30 seconds
-  retry: 3,                             // Retry 3 times on failure
-  retryDelay: Duration(seconds: 1),     // Wait 1 second between retries
-  enabled: true,                        // Query is enabled
-  keepPreviousData: false,              // Don't keep previous data while loading
+QueryOptions<T>(
+  staleTime: Duration(minutes: 5), // How long data stays fresh
+  cacheTime: Duration(minutes: 30), // How long unused data stays cached
+  refetchOnMount: true, // Refetch when query mounts
+  refetchOnWindowFocus: false, // Refetch on window focus
+  refetchOnAppFocus: true, // Refetch when app comes to foreground
+  pauseRefetchInBackground: true, // Pause refetching in background
+  refetchInterval: Duration(minutes: 1), // Periodic refetching
+  retry: 3, // Number of retry attempts
+  retryDelay: Duration(seconds: 1), // Delay between retries
+  enabled: true, // Whether query is enabled
+  keepPreviousData: false, // Keep previous data while fetching new
   onSuccess: (data) => print('Success: $data'),
   onError: (error, stackTrace) => print('Error: $error'),
 )
 ```
 
-## Mutations
+## 📚 API Reference
 
-Handle data modifications with mutations:
+### Query Providers
+
+#### `asyncQueryProvider<T>`
+Creates a basic async query provider.
 
 ```dart
-// Create a mutation provider
-final createUserMutationProvider = MutationProvider<User, Map<String, dynamic>>(
-  name: 'create-user',
-  mutationFn: (userData) async {
-    final response = await http.post(
-      Uri.parse('https://api.example.com/users'),
-      body: json.encode(userData),
-      headers: {'Content-Type': 'application/json'},
-    );
-    return User.fromJson(json.decode(response.body));
-  },
-  options: MutationOptions<User, Map<String, dynamic>>(
-    onSuccess: (user, variables) {
-      print('User created: ${user.name}');
-      // Invalidate users query to refetch the list
-      ref.read(queryClientProvider).invalidateQueries('users');
-    },
-    onError: (error, variables, stackTrace) {
-      print('Failed to create user: $error');
-    },
-  ),
-);
-
-// Use the mutation in a widget
-class CreateUserForm extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final createUserMutation = createUserMutationProvider.use(ref);
-
-    return ElevatedButton(
-      onPressed: createUserMutation.isLoading
-          ? null
-          : () async {
-              try {
-                await createUserMutation.mutate({
-                  'name': 'John Doe',
-                  'email': 'john@example.com',
-                });
-                // Success! The onSuccess callback will handle cache invalidation
-              } catch (e) {
-                // Error handled by onError callback
-              }
-            },
-      child: createUserMutation.isLoading
-          ? const CircularProgressIndicator()
-          : const Text('Create User'),
-    );
-  }
-}
+AsyncNotifierProvider<AsyncQueryNotifier<T>, T> asyncQueryProvider<T>({
+  required String name, // Unique identifier for caching
+  required QueryFunctionWithRef<T> queryFn, // Function that fetches data
+  QueryOptions<T>? options, // Configuration options
+})
 ```
 
-## Infinite Queries
-
-Handle paginated data with infinite queries:
-
-```dart
-// Create an infinite query provider
-final postsInfiniteQueryProvider = InfiniteQueryProvider<PostPage, int>(
-  name: 'posts-infinite',
-  queryFn: (pageParam) => fetchPosts(page: pageParam),
-  initialPageParam: 1,
-  options: InfiniteQueryOptions<PostPage, int>(
-    getNextPageParam: (lastPage, allPages) {
-      return lastPage.hasMore ? lastPage.page + 1 : null;
-    },
-    staleTime: const Duration(minutes: 2),
-  ),
-);
-
-// Use in a widget
-class PostsList extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final infiniteQuery = postsInfiniteQueryProvider.use(ref);
-
-    return infiniteQuery.state.when(
-      loading: () => const CircularProgressIndicator(),
-      success: (pages, hasNextPage, _, __) {
-        final allPosts = pages.expand((page) => page.posts).toList();
-        
-        return ListView.builder(
-          itemCount: allPosts.length + (hasNextPage ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (index == allPosts.length) {
-              return ElevatedButton(
-                onPressed: infiniteQuery.fetchNextPage,
-                child: const Text('Load More'),
-              );
-            }
-            return PostTile(post: allPosts[index]);
-          },
-        );
-      },
-      error: (error, _) => Text('Error: $error'),
-      // ... other states
-    );
-  }
-}
-```
-
-## Advanced Usage
-
-### Query Client
-
-Access the query client for global operations:
+#### `asyncQueryProviderFamily<T, P>`
+Creates a parameterized async query provider.
 
 ```dart
-class MyWidget extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final queryClient = ref.read(queryClientProvider);
-
-    return ElevatedButton(
-      onPressed: () {
-        // Invalidate all user-related queries
-        queryClient.invalidateQueries('user');
-        
-        // Invalidate all queries
-        queryClient.invalidateAll();
-        
-        // Remove specific queries from cache
-        queryClient.removeQueries('user-1');
-      },
-      child: const Text('Refresh Data'),
-    );
-  }
-}
-```
-
-### Custom Hooks
-
-Create reusable query patterns:
-
-```dart
-class QueryUtils {
-  static QueryProvider<T> createQuery<T>({
-    required String key,
-    required Future<T> Function() fetcher,
-    QueryOptions<T> options = const QueryOptions(),
-  }) {
-    return QueryProvider<T>(
-      name: key,
-      queryFn: fetcher,
-      options: options,
-    );
-  }
-}
-
-// Usage
-final userQuery = QueryUtils.createQuery<User>(
-  key: 'user-123',
-  fetcher: () => fetchUser(123),
-  options: const QueryOptions(staleTime: Duration(minutes: 5)),
-);
-```
-
-### Error Handling
-
-Handle errors gracefully:
-
-```dart
-final userState = ref.watch(userQueryProvider);
-
-return userState.when(
-  // ... other states
-  error: (error, stackTrace) {
-    if (error is NetworkException) {
-      return const Text('Network error. Please check your connection.');
-    } else if (error is AuthException) {
-      return const Text('Authentication failed. Please log in again.');
-    } else {
-      return Text('An unexpected error occurred: $error');
-    }
-  },
-);
-```
-
-## Best Practices
-
-### 1. Query Key Naming
-
-Use descriptive and hierarchical query keys:
-
-```dart
-// Good
-final userQueryProvider = QueryProvider<User>(name: 'user-$userId', ...);
-final userPostsProvider = QueryProvider<List<Post>>(name: 'user-$userId-posts', ...);
-
-// Avoid
-final queryProvider = QueryProvider<User>(name: 'query1', ...);
-```
-
-### 2. Cache Configuration
-
-Configure cache times based on data volatility:
-
-```dart
-// Frequently changing data
-const QueryOptions(
-  staleTime: Duration(seconds: 30),
-  cacheTime: Duration(minutes: 5),
-)
-
-// Rarely changing data
-const QueryOptions(
-  staleTime: Duration(hours: 1),
-  cacheTime: Duration(hours: 24),
-)
-```
-
-### 3. Optimistic Updates
-
-Use mutations with optimistic updates for better UX:
-
-```dart
-final updateUserMutation = MutationProvider<User, Map<String, dynamic>>(
-  name: 'update-user',
-  mutationFn: updateUser,
-  options: MutationOptions(
-    onMutate: (variables) async {
-      // Cancel any outgoing refetches
-      final queryClient = ref.read(queryClientProvider);
-      
-      // Snapshot the previous value
-      final previousUser = queryClient.getQueryData(userQueryProvider);
-      
-      // Optimistically update to the new value
-      queryClient.setQueryData(userQueryProvider, User.fromJson(variables));
-      
-      // Return a context object with the snapshotted value
-      return previousUser;
-    },
-    onError: (error, variables, context) {
-      // If the mutation fails, use the context returned from onMutate to roll back
-      if (context != null) {
-        queryClient.setQueryData(userQueryProvider, context);
-      }
-    },
-    onSuccess: (data, variables) {
-      // Invalidate and refetch
-      queryClient.invalidateQueries('user');
-    },
-  ),
-);
-```
-
-## API Reference
-
-### QueryProvider
-
-```dart
-QueryProvider<T>({
+AsyncNotifierProviderFamily<AsyncQueryNotifierFamily<T, P>, T, P> asyncQueryProviderFamily<T, P>({
   required String name,
-  required QueryFunction<T> queryFn,
+  required QueryFunctionWithParamsWithRef<T, P> queryFn,
+  QueryOptions<T>? options,
+})
+```
+
+#### `queryProvider<T>` (StateNotifier-based)
+Creates a StateNotifier-based query provider for more control.
+
+```dart
+StateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProvider<T>({
+  required String name,
+  required QueryFunctionWithRef<T> queryFn,
   QueryOptions<T> options = const QueryOptions(),
 })
 ```
 
-### MutationProvider
+### Mutations
+
+#### `mutationProvider<TData, TVariables>`
+Creates a mutation provider.
 
 ```dart
-MutationProvider<TData, TVariables>({
+StateNotifierProvider<MutationNotifier<TData, TVariables>, MutationState<TData>> createProvider<TData, TVariables>({
   required String name,
-  required MutationFunction<TData, TVariables> mutationFn,
-  MutationOptions<TData, TVariables> options = const MutationOptions(),
+  required CreateMutationFunctionWithRef<TData, TVariables> mutationFn,
+  int? retry = 0,
+  Duration? retryDelay = const Duration(seconds: 1),
+  OnSuccessFunctionWithRef<TData, TVariables>? onSuccess,
+  OnErrorFunctionWithRef<TData, TVariables>? onError,
+  OnMutateFunctionWithRef<TData, TVariables>? onMutate,
 })
 ```
 
-### InfiniteQueryProvider
+### Query Client
+
+Access the query client for manual cache operations:
 
 ```dart
-InfiniteQueryProvider<T, TPageParam>({
-  required String name,
-  required InfiniteQueryFunction<T, TPageParam> queryFn,
-  required TPageParam initialPageParam,
-  required InfiniteQueryOptions<T, TPageParam> options,
-})
+    final queryClient = ref.read(queryClientProvider);
+
+// Get cached data
+final users = queryClient.getQueryData<List<User>>('users');
+
+// Set cached data
+queryClient.setQueryData('users', newUsers);
+
+// Invalidate queries (triggers refetch)
+queryClient.invalidateQueries('users');
+
+// Remove queries from cache
+queryClient.removeQueries('users');
+
+// Get query state
+final queryState = queryClient.getQueryState('users');
 ```
 
-## Examples
+## 🔧 Advanced Usage
 
-Check out the [example](./example) directory for a complete sample application demonstrating:
+### Dependent Queries
 
-- Basic queries with loading states
-- Mutations with optimistic updates
-- Infinite queries for pagination
-- Error handling and retry logic
-- Cache invalidation patterns
+```dart
+final userProvider = asyncQueryProviderFamily<User, int>(
+  name: 'user',
+  queryFn: (ref, userId) => ApiService.fetchUser(userId),
+);
 
-## Contributing
+final userPostsProvider = asyncQueryProviderFamily<List<Post>, int>(
+  name: 'user-posts',
+  queryFn: (ref, userId) async {
+    // Wait for user data first
+    final user = await ref.watch(userProvider(userId).future);
+    return ApiService.fetchUserPosts(user.id);
+  },
+  options: QueryOptions(
+    enabled: true, // Can be dynamic based on user data
+  ),
+);
+```
 
-Contributions are welcome! Please read our [contributing guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+### Infinite Queries
 
-## License
+```dart
+final infinitePostsProvider = infiniteQueryProvider<List<Post>, int>(
+  name: 'infinite-posts',
+  queryFn: (ref, pageParam) => ApiService.fetchPosts(page: pageParam),
+  getNextPageParam: (lastPage, allPages) {
+    return lastPage.hasMore ? allPages.length + 1 : null;
+  },
+  options: InfiniteQueryOptions(
+    staleTime: Duration(minutes: 5),
+  ),
+);
+```
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### Optimistic Updates with Rollback
 
-## Acknowledgments
+```dart
+final updatePostMutation = mutationProvider<Post, UpdatePostRequest>(
+  name: 'update-post',
+  mutationFn: (ref, request) => ApiService.updatePost(request),
+  onMutate: (ref, request) async {
+    final queryClient = ref.read(queryClientProvider);
+    
+    // Cancel outgoing refetches
+    await queryClient.cancelQueries('posts');
+    
+    // Snapshot previous value
+    final previousPosts = queryClient.getQueryData<List<Post>>('posts');
+    
+    // Optimistically update
+    if (previousPosts != null) {
+      final updatedPosts = previousPosts.map((post) {
+        return post.id == request.id ? request.toPost() : post;
+      }).toList();
+      queryClient.setQueryData('posts', updatedPosts);
+    }
+    
+    return {'previousPosts': previousPosts};
+  },
+  onError: (ref, request, error, stackTrace) async {
+    final queryClient = ref.read(queryClientProvider);
+    final context = error.context as Map<String, dynamic>?;
+    
+    // Rollback to previous value
+    if (context?['previousPosts'] != null) {
+      queryClient.setQueryData('posts', context!['previousPosts']);
+    }
+  },
+  onSuccess: (ref, post, request) async {
+    final queryClient = ref.read(queryClientProvider);
+    queryClient.invalidateQueries('posts');
+  },
+);
+```
 
-- Inspired by [TanStack Query (React Query)](https://tanstack.com/query)
-- Built on top of [Riverpod](https://riverpod.dev/) for state management
-- Thanks to the Flutter community for feedback and contributions
+### Custom Query Keys
+
+```dart
+// Simple key
+final userProvider = asyncQueryProvider<User>(
+  name: 'user',
+  queryFn: (ref) => ApiService.fetchCurrentUser(),
+);
+
+// Complex key with parameters
+final searchProvider = asyncQueryProviderFamily<List<Post>, SearchParams>(
+  name: 'search',
+  queryFn: (ref, params) => ApiService.search(params),
+);
+
+// Usage
+final searchResults = ref.watch(searchProvider(SearchParams(
+  query: 'flutter',
+  category: 'tech',
+  sortBy: 'date',
+)));
+```
+
+### Error Boundaries
+
+```dart
+class QueryErrorBoundary extends ConsumerWidget {
+  final Widget child;
+  
+  const QueryErrorBoundary({required this.child});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return child;
+  }
+}
+
+// Usage in widget
+Widget build(BuildContext context, WidgetRef ref) {
+  final postsAsync = ref.watch(postsProvider);
+  
+  return postsAsync.when(
+    loading: () => LoadingWidget(),
+    error: (error, stack) => ErrorBoundary(
+      error: error,
+      onRetry: () => ref.refresh(postsProvider),
+    ),
+    data: (posts) => PostsList(posts),
+  );
+}
+```
+
+## ⚖️ Comparison
+
+### QueryProvider vs Traditional Riverpod
+
+| Aspect | Traditional Riverpod | QueryProvider |
+|--------|---------------------|---------------|
+| **Setup Complexity** | Simple | Moderate |
+| **Caching** | Manual | Automatic |
+| **Background Updates** | Manual | Automatic |
+| **Error Handling** | Manual | Built-in with retry |
+| **Loading States** | Manual | Built-in |
+| **Optimistic Updates** | Complex | Simple |
+| **Memory Management** | Manual | Automatic |
+| **DevTools Support** | Basic | Rich |
+| **Learning Curve** | Low | Moderate |
+| **Bundle Size** | Small | Moderate |
+
+### When to Use QueryProvider
+
+✅ **Use QueryProvider when:**
+- Building data-heavy applications
+- Need intelligent caching and background updates
+- Want optimistic updates with rollback
+- Require offline-first behavior
+- Building real-time or collaborative apps
+- Need comprehensive error handling and retry logic
+
+❌ **Use Traditional Riverpod when:**
+- Building simple apps with minimal data fetching
+- Bundle size is critical
+- Team is not familiar with React Query concepts
+- Need maximum control over every aspect of state management
+
+## 📈 Migration Guide
+
+### From FutureProvider
+
+```dart
+// Before
+final usersProvider = FutureProvider<List<User>>((ref) async {
+  return ApiService.fetchUsers();
+});
+
+// After
+final usersProvider = asyncQueryProvider<List<User>>(
+  name: 'users',
+  queryFn: (ref) => ApiService.fetchUsers(),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 5),
+    cacheTime: Duration(minutes: 30),
+  ),
+);
+```
+
+### From StateNotifierProvider
+
+```dart
+// Before
+class UsersNotifier extends StateNotifier<AsyncValue<List<User>>> {
+  UsersNotifier() : super(const AsyncValue.loading()) {
+    fetchUsers();
+  }
+
+  Future<void> fetchUsers() async {
+    state = const AsyncValue.loading();
+    try {
+      final users = await ApiService.fetchUsers();
+      state = AsyncValue.data(users);
+    } catch (error, stackTrace) {
+      state = AsyncValue.error(error, stackTrace);
+    }
+  }
+}
+
+final usersProvider = StateNotifierProvider<UsersNotifier, AsyncValue<List<User>>>(
+  (ref) => UsersNotifier(),
+);
+
+// After
+final usersProvider = asyncQueryProvider<List<User>>(
+  name: 'users',
+  queryFn: (ref) => ApiService.fetchUsers(),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 5),
+    retry: 3,
+    refetchOnWindowFocus: true,
+  ),
+);
+```
+
+### From Manual Cache Management
+
+```dart
+// Before - Manual caching
+class CacheNotifier extends StateNotifier<Map<String, dynamic>> {
+  CacheNotifier() : super({});
+  
+  Future<User> getUser(int id) async {
+    final cacheKey = 'user-$id';
+    if (state.containsKey(cacheKey)) {
+      final entry = state[cacheKey];
+      if (DateTime.now().difference(entry['timestamp']).inMinutes < 5) {
+        return entry['data'];
+      }
+    }
+    
+    final user = await ApiService.fetchUser(id);
+    state = {
+      ...state,
+      cacheKey: {
+        'data': user,
+        'timestamp': DateTime.now(),
+      },
+    };
+    return user;
+  }
+}
+
+// After - Automatic caching
+final userProvider = asyncQueryProviderFamily<User, int>(
+  name: 'user',
+  queryFn: (ref, userId) => ApiService.fetchUser(userId),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 5),
+    cacheTime: Duration(minutes: 30),
+  ),
+);
+```
+
+## 🎉 Conclusion
+
+QueryProvider brings the power of React Query to Flutter, solving common data management challenges with:
+
+- **🚀 Zero-config caching** - Works out of the box
+- **🔄 Smart background updates** - Keep data fresh automatically  
+- **⚡ Optimistic updates** - Instant UI feedback with rollback
+- **🛡️ Built-in error handling** - Retry logic and error boundaries
+- **🧠 Intelligent request deduplication** - No duplicate network calls
+- **💾 Memory efficient** - Automatic cleanup and resource management
+
+Start building better Flutter apps today with QueryProvider!
+
+## 📖 Further Reading
+
+- [API Documentation](./docs/API.md)
+- [Examples](./example/)
+- [Migration Guide](./docs/MIGRATION.md)
+- [Best Practices](./docs/BEST_PRACTICES.md)
+- [Troubleshooting](./docs/TROUBLESHOOTING.md)
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
