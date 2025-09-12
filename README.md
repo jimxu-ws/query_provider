@@ -12,6 +12,7 @@ A powerful data fetching and caching library for Flutter applications built on t
 - [Core Concepts](#-core-concepts)
 - [API Reference](#-api-reference)
 - [Advanced Usage](#-advanced-usage)
+- [Pagination](#-pagination)
 - [Comparison](#-comparison)
 - [Migration Guide](#-migration-guide)
 
@@ -88,15 +89,8 @@ final dataProvider = FutureProvider<Data>((ref) async {
 });
 ```
 
-### 7. **Duplicated Network Requests**
-```dart
-// ❌ Multiple widgets cause multiple requests
-Widget build(BuildContext context, WidgetRef ref) {
-  final users = ref.watch(usersProvider); // Request #1
-  final moreUsers = ref.watch(usersProvider); // Request #2 (duplicate!)
-  // ...
-}
-```
+### 7. **Complex Pagination**
+You need to write a lot of boilerplate code to handle pagination
 
 ## 🚀 The Solution
 
@@ -189,7 +183,7 @@ final dataProvider = asyncQueryProvider<Data>(
 ### ✅ **Request Deduplication**
 ```dart
 // ✅ Multiple widgets, single request
-Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context, WidgetRef ref) {
   final users1 = ref.watch(usersProvider); // Request once
   final users2 = ref.watch(usersProvider); // Uses cache
   // Only one network request!
@@ -635,6 +629,665 @@ Widget build(BuildContext context, WidgetRef ref) {
   );
 }
 ```
+
+## 📄 Pagination
+
+QueryProvider provides comprehensive pagination support through multiple approaches, from simple offset-based pagination to advanced infinite scroll implementations.
+
+### Simple Offset Pagination
+
+For traditional page-based pagination with page numbers:
+
+```dart
+// Pagination state provider
+final paginationStateProvider = StateProvider<PaginationState>((ref) => 
+  PaginationState(page: 1, limit: 20));
+
+class PaginationState {
+  final int page;
+  final int limit;
+  final int? total;
+  
+  const PaginationState({required this.page, required this.limit, this.total});
+  
+  int get offset => (page - 1) * limit;
+  bool get hasNextPage => total == null || (page * limit) < total!;
+  bool get hasPreviousPage => page > 1;
+  int get totalPages => total == null ? 1 : (total! / limit).ceil();
+  
+  PaginationState copyWith({int? page, int? limit, int? total}) => PaginationState(
+    page: page ?? this.page,
+    limit: limit ?? this.limit,
+    total: total ?? this.total,
+  );
+}
+
+// Paginated posts provider
+final paginatedPostsProvider = asyncQueryProviderFamily<PaginatedResponse<Post>, PaginationParams>(
+  name: 'paginated-posts',
+  queryFn: (ref, params) => ApiService.fetchPostsPaginated(
+    page: params.page,
+    limit: params.limit,
+    search: params.search,
+  ),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 2),
+    cacheTime: Duration(minutes: 10),
+    keepPreviousData: true, // Keep previous page while loading new one
+  ),
+);
+
+class PaginationParams {
+  final int page;
+  final int limit;
+  final String? search;
+  
+  const PaginationParams({required this.page, required this.limit, this.search});
+  
+  @override
+  bool operator ==(Object other) =>
+    identical(this, other) ||
+    other is PaginationParams &&
+    page == other.page &&
+    limit == other.limit &&
+    search == other.search;
+    
+  @override
+  int get hashCode => Object.hash(page, limit, search);
+}
+
+class PaginatedResponse<T> {
+  final List<T> data;
+  final int total;
+  final int page;
+  final int limit;
+  
+  const PaginatedResponse({
+    required this.data,
+    required this.total,
+    required this.page,
+    required this.limit,
+  });
+  
+  bool get hasNextPage => (page * limit) < total;
+  bool get hasPreviousPage => page > 1;
+  int get totalPages => (total / limit).ceil();
+}
+```
+
+### Pagination Widget Implementation
+
+```dart
+class PaginatedPostsScreen extends ConsumerWidget {
+  const PaginatedPostsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final paginationState = ref.watch(paginationStateProvider);
+    final postsAsync = ref.watch(paginatedPostsProvider(PaginationParams(
+      page: paginationState.page,
+      limit: paginationState.limit,
+    )));
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Paginated Posts'),
+        actions: [
+          IconButton(
+            onPressed: () => ref.refresh(paginatedPostsProvider(PaginationParams(
+              page: paginationState.page,
+              limit: paginationState.limit,
+            ))),
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Posts list
+          Expanded(
+            child: postsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Error: $error'),
+                    ElevatedButton(
+                      onPressed: () => ref.refresh(paginatedPostsProvider(PaginationParams(
+                        page: paginationState.page,
+                        limit: paginationState.limit,
+                      ))),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+              data: (response) => ListView.builder(
+                itemCount: response.data.length,
+          itemBuilder: (context, index) {
+                  final post = response.data[index];
+                  return ListTile(
+                    title: Text(post.title),
+                    subtitle: Text(post.body),
+                    trailing: Text('Page ${response.page}'),
+                  );
+                },
+              ),
+            ),
+          ),
+          
+          // Pagination controls
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: postsAsync.when(
+              data: (response) => PaginationControls(
+                currentPage: response.page,
+                totalPages: response.totalPages,
+                hasNextPage: response.hasNextPage,
+                hasPreviousPage: response.hasPreviousPage,
+                onPageChanged: (page) {
+                  ref.read(paginationStateProvider.notifier).state = 
+                    paginationState.copyWith(page: page, total: response.total);
+                },
+              ),
+              loading: () => const SizedBox(height: 48),
+              error: (_, __) => const SizedBox(height: 48),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PaginationControls extends StatelessWidget {
+  final int currentPage;
+  final int totalPages;
+  final bool hasNextPage;
+  final bool hasPreviousPage;
+  final Function(int) onPageChanged;
+
+  const PaginationControls({
+    super.key,
+    required this.currentPage,
+    required this.totalPages,
+    required this.hasNextPage,
+    required this.hasPreviousPage,
+    required this.onPageChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // First page
+        IconButton(
+          onPressed: currentPage > 1 ? () => onPageChanged(1) : null,
+          icon: const Icon(Icons.first_page),
+        ),
+        
+        // Previous page
+        IconButton(
+          onPressed: hasPreviousPage ? () => onPageChanged(currentPage - 1) : null,
+          icon: const Icon(Icons.chevron_left),
+        ),
+        
+        // Page numbers
+        ...List.generate(
+          5 < totalPages ? 5 : totalPages,
+          (index) {
+            int pageNumber;
+            if (totalPages <= 5) {
+              pageNumber = index + 1;
+            } else if (currentPage <= 3) {
+              pageNumber = index + 1;
+            } else if (currentPage >= totalPages - 2) {
+              pageNumber = totalPages - 4 + index;
+            } else {
+              pageNumber = currentPage - 2 + index;
+            }
+            
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: pageNumber == currentPage
+                  ? Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '$pageNumber',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    )
+                  : TextButton(
+                      onPressed: () => onPageChanged(pageNumber),
+                      child: Text('$pageNumber'),
+                    ),
+            );
+          },
+        ),
+        
+        // Next page
+        IconButton(
+          onPressed: hasNextPage ? () => onPageChanged(currentPage + 1) : null,
+          icon: const Icon(Icons.chevron_right),
+        ),
+        
+        // Last page
+        IconButton(
+          onPressed: currentPage < totalPages ? () => onPageChanged(totalPages) : null,
+          icon: const Icon(Icons.last_page),
+        ),
+      ],
+    );
+  }
+}
+```
+
+### Infinite Scroll Pagination
+
+For infinite scroll with automatic loading:
+
+```dart
+// Infinite scroll provider using existing query system
+final infinitePostsProvider = asyncQueryProviderFamily<List<Post>, int>(
+  name: 'infinite-posts',
+  queryFn: (ref, page) => ApiService.fetchPosts(page: page),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 5),
+    cacheTime: Duration(minutes: 15),
+  ),
+);
+
+// Infinite scroll state management
+final infiniteScrollStateProvider = StateNotifierProvider<InfiniteScrollNotifier, InfiniteScrollState>(
+  (ref) => InfiniteScrollNotifier(),
+);
+
+class InfiniteScrollState {
+  final List<Post> allPosts;
+  final int currentPage;
+  final bool isLoadingMore;
+  final bool hasReachedEnd;
+  final String? error;
+
+  const InfiniteScrollState({
+    this.allPosts = const [],
+    this.currentPage = 1,
+    this.isLoadingMore = false,
+    this.hasReachedEnd = false,
+    this.error,
+  });
+
+  InfiniteScrollState copyWith({
+    List<Post>? allPosts,
+    int? currentPage,
+    bool? isLoadingMore,
+    bool? hasReachedEnd,
+    String? error,
+  }) => InfiniteScrollState(
+    allPosts: allPosts ?? this.allPosts,
+    currentPage: currentPage ?? this.currentPage,
+    isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+    hasReachedEnd: hasReachedEnd ?? this.hasReachedEnd,
+    error: error ?? this.error,
+  );
+}
+
+class InfiniteScrollNotifier extends StateNotifier<InfiniteScrollState> {
+  InfiniteScrollNotifier() : super(const InfiniteScrollState());
+
+  Future<void> loadInitialPosts(WidgetRef ref) async {
+    if (state.allPosts.isNotEmpty) return;
+    
+    try {
+      final posts = await ref.read(infinitePostsProvider(1).future);
+      state = state.copyWith(
+        allPosts: posts,
+        currentPage: 1,
+        hasReachedEnd: posts.length < 20, // Assuming 20 posts per page
+      );
+    } catch (error) {
+      state = state.copyWith(error: error.toString());
+    }
+  }
+
+  Future<void> loadMorePosts(WidgetRef ref) async {
+    if (state.isLoadingMore || state.hasReachedEnd) return;
+
+    state = state.copyWith(isLoadingMore: true, error: null);
+
+    try {
+      final nextPage = state.currentPage + 1;
+      final newPosts = await ref.read(infinitePostsProvider(nextPage).future);
+      
+      state = state.copyWith(
+        allPosts: [...state.allPosts, ...newPosts],
+        currentPage: nextPage,
+        isLoadingMore: false,
+        hasReachedEnd: newPosts.length < 20,
+      );
+    } catch (error) {
+      state = state.copyWith(
+        isLoadingMore: false,
+        error: error.toString(),
+      );
+    }
+  }
+
+  void reset() {
+    state = const InfiniteScrollState();
+  }
+}
+```
+
+### Infinite Scroll Widget
+
+```dart
+class InfiniteScrollPostsScreen extends ConsumerStatefulWidget {
+  const InfiniteScrollPostsScreen({super.key});
+
+  @override
+  ConsumerState<InfiniteScrollPostsScreen> createState() => _InfiniteScrollPostsScreenState();
+}
+
+class _InfiniteScrollPostsScreenState extends ConsumerState<InfiniteScrollPostsScreen> {
+  late ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+    
+    // Load initial posts
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(infiniteScrollStateProvider.notifier).loadInitialPosts(ref);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent - 200) {
+      // Load more when 200px from bottom
+      ref.read(infiniteScrollStateProvider.notifier).loadMorePosts(ref);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scrollState = ref.watch(infiniteScrollStateProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Infinite Scroll Posts'),
+        actions: [
+          IconButton(
+            onPressed: () {
+              ref.read(infiniteScrollStateProvider.notifier).reset();
+              ref.read(infiniteScrollStateProvider.notifier).loadInitialPosts(ref);
+            },
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: scrollState.allPosts.isEmpty && scrollState.error == null
+          ? const Center(child: CircularProgressIndicator())
+          : scrollState.error != null && scrollState.allPosts.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Error: ${scrollState.error}'),
+                      ElevatedButton(
+                        onPressed: () => ref.read(infiniteScrollStateProvider.notifier).loadInitialPosts(ref),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  controller: _scrollController,
+                  itemCount: scrollState.allPosts.length + (scrollState.hasReachedEnd ? 0 : 1),
+                  itemBuilder: (context, index) {
+                    if (index == scrollState.allPosts.length) {
+                      // Loading indicator at the end
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        alignment: Alignment.center,
+                        child: scrollState.isLoadingMore
+                            ? const CircularProgressIndicator()
+                            : scrollState.error != null
+                                ? Column(
+                                    children: [
+                                      Text('Error: ${scrollState.error}'),
+                                      ElevatedButton(
+                                        onPressed: () => ref.read(infiniteScrollStateProvider.notifier).loadMorePosts(ref),
+                                        child: const Text('Retry'),
+                                      ),
+                                    ],
+                                  )
+                                : const Text('No more posts'),
+                      );
+                    }
+
+                    final post = scrollState.allPosts[index];
+                    return ListTile(
+                      title: Text(post.title),
+                      subtitle: Text(post.body),
+                      trailing: Text('#${post.id}'),
+                    );
+                  },
+                ),
+    );
+  }
+}
+```
+
+### Search with Pagination
+
+Combining search functionality with pagination:
+
+```dart
+// Search state provider
+final searchStateProvider = StateProvider<String>((ref) => '');
+
+// Debounced search provider
+final debouncedSearchProvider = Provider<String>((ref) {
+  final search = ref.watch(searchStateProvider);
+  final debounce = ref.keepAlive();
+  
+  Timer(const Duration(milliseconds: 500), debounce.close);
+  return search;
+});
+
+// Search with pagination provider
+final searchPostsProvider = asyncQueryProviderFamily<PaginatedResponse<Post>, SearchPaginationParams>(
+  name: 'search-posts',
+  queryFn: (ref, params) => ApiService.searchPosts(
+    query: params.query,
+    page: params.page,
+    limit: params.limit,
+  ),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 1),
+  cacheTime: Duration(minutes: 5),
+    keepPreviousData: true,
+  ),
+);
+
+class SearchPaginationParams {
+  final String query;
+  final int page;
+  final int limit;
+  
+  const SearchPaginationParams({
+    required this.query,
+    required this.page,
+    this.limit = 20,
+  });
+  
+  @override
+  bool operator ==(Object other) =>
+    identical(this, other) ||
+    other is SearchPaginationParams &&
+    query == other.query &&
+    page == other.page &&
+    limit == other.limit;
+    
+  @override
+  int get hashCode => Object.hash(query, page, limit);
+}
+
+class SearchablePostsScreen extends ConsumerWidget {
+  const SearchablePostsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final searchQuery = ref.watch(debouncedSearchProvider);
+    final paginationState = ref.watch(paginationStateProvider);
+    
+    final searchResults = ref.watch(searchPostsProvider(SearchPaginationParams(
+      query: searchQuery,
+      page: paginationState.page,
+      limit: paginationState.limit,
+    )));
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Search Posts'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search posts...',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.white,
+              ),
+              onChanged: (value) {
+                ref.read(searchStateProvider.notifier).state = value;
+                // Reset to first page when searching
+                ref.read(paginationStateProvider.notifier).state = 
+                  paginationState.copyWith(page: 1);
+              },
+            ),
+          ),
+        ),
+      ),
+      body: searchQuery.isEmpty
+          ? const Center(child: Text('Enter a search query'))
+          : Column(
+              children: [
+                Expanded(
+                  child: searchResults.when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (error, stack) => Center(child: Text('Error: $error')),
+                    data: (response) => response.data.isEmpty
+                        ? const Center(child: Text('No results found'))
+                        : ListView.builder(
+                            itemCount: response.data.length,
+                            itemBuilder: (context, index) {
+                              final post = response.data[index];
+                              return ListTile(
+                                title: Text(post.title),
+                                subtitle: Text(post.body),
+                                trailing: Text('Page ${response.page}'),
+                              );
+                            },
+                          ),
+                  ),
+                ),
+                
+                // Pagination for search results
+                searchResults.when(
+                  data: (response) => PaginationControls(
+                    currentPage: response.page,
+                    totalPages: response.totalPages,
+                    hasNextPage: response.hasNextPage,
+                    hasPreviousPage: response.hasPreviousPage,
+                    onPageChanged: (page) {
+                      ref.read(paginationStateProvider.notifier).state = 
+                        paginationState.copyWith(page: page, total: response.total);
+                    },
+                  ),
+                  loading: () => const SizedBox(height: 48),
+                  error: (_, __) => const SizedBox(height: 48),
+                ),
+              ],
+            ),
+    );
+  }
+}
+```
+
+### Pagination Best Practices
+
+| Practice | Description | Benefit |
+|----------|-------------|---------|
+| **Use `keepPreviousData`** | Keep previous page data while loading new page | Smooth UX without loading states |
+| **Implement proper cache keys** | Include page/search params in provider parameters | Correct caching per page |
+| **Debounce search queries** | Wait for user to stop typing before searching | Reduce API calls |
+| **Preload next page** | Load next page in background when near end | Instant navigation |
+| **Handle empty states** | Show appropriate UI for no results | Better user experience |
+| **Error boundaries** | Graceful error handling per page | Resilient pagination |
+| **Loading indicators** | Show loading states for better UX | User feedback |
+| **Scroll position preservation** | Remember scroll position when navigating | Seamless navigation |
+
+### Performance Optimization
+
+```dart
+// Preload next page for better UX
+final preloadNextPageProvider = Provider.family<void, PaginationParams>((ref, params) {
+  // Preload next page when current page is loaded
+  Timer(const Duration(milliseconds: 100), () {
+    if (params.page > 0) {
+      ref.read(paginatedPostsProvider(PaginationParams(
+        page: params.page + 1,
+        limit: params.limit,
+      )));
+    }
+  });
+});
+
+// Virtual scrolling for large lists
+class VirtualScrollView extends StatelessWidget {
+  final List<Post> items;
+  final double itemHeight;
+  final Widget Function(BuildContext, Post) itemBuilder;
+
+  const VirtualScrollView({
+    super.key,
+    required this.items,
+    required this.itemHeight,
+    required this.itemBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      itemCount: items.length,
+      itemExtent: itemHeight, // Fixed height for better performance
+      itemBuilder: (context, index) => itemBuilder(context, items[index]),
+    );
+  }
+}
+```
+
+QueryProvider's pagination system provides flexible, performant solutions for all common pagination patterns while maintaining the benefits of intelligent caching and background updates.
 
 ## ⚖️ Comparison
 

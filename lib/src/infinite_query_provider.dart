@@ -539,3 +539,19 @@ extension InfiniteQueryProviderExtension<T, TPageParam> on StateNotifierProvider
     );
   }
 }
+
+/// Extension to create an infinite query result from a provider
+extension WidgetRefReadQueryResult on WidgetRef {
+  /// Create an infinite query result that can be used in widgets
+  InfiniteQueryResult<T> readInfiniteQueryResult<T, TPageParam>(StateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>> provider) {
+    final notifier = read(provider.notifier);
+    final state = watch(provider);
+
+    return InfiniteQueryResult<T>(
+      state: state,
+      fetchNextPage: notifier.fetchNextPage,
+      fetchPreviousPage: notifier.fetchPreviousPage,
+      refetch: notifier.refetch,
+    );
+  }
+}

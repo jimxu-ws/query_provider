@@ -10,7 +10,7 @@ class PostsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final infiniteQuery = postsInfiniteQueryProvider.use(ref);
+    final infiniteQuery = ref.readInfiniteQueryResult(postsInfiniteQueryProvider);//postsInfiniteQueryProvider.use(ref);
 
     return infiniteQuery.state.when(
       idle: () => const Center(child: Text('Loading posts...')),
