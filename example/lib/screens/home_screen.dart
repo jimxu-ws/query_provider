@@ -16,61 +16,213 @@ import 'provider_comparison_screen.dart';
 import 'cache_debug_screen.dart';
 import 'smart_cache_examples.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return DefaultTabController(
-      length: 10,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Query Provider Example'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.bug_report),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CacheDebugScreen(),
-                  ),
-                );
-              },
-              tooltip: 'Cache Debug',
-            ),
-          ],
-          bottom: const TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: [
-              Tab(text: 'Users', icon: Icon(Icons.people)),
-              Tab(text: 'Users Async', icon: Icon(Icons.people_outline)),
-              Tab(text: 'Posts', icon: Icon(Icons.article)),
-              Tab(text: 'Search', icon: Icon(Icons.search)),
-              Tab(text: 'Mutations', icon: Icon(Icons.edit)),
-              Tab(text: 'BackgroundRefetchExample', icon: Icon(Icons.code)),
-              Tab(text: 'BackgroundForegroundExample', icon: Icon(Icons.code)),
-              Tab(text: 'LifecycleAwareExample', icon: Icon(Icons.code)),
-              Tab(text: 'WindowFocusExample', icon: Icon(Icons.code)),
-              Tab(text: 'SmartCacheComparisonExample', icon: Icon(Icons.abc)),
-            ],
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+  
+  final List<TabData> _tabs = const [
+    TabData(text: 'Users', icon: Icons.people),
+    TabData(text: 'Users Async', icon: Icons.people_outline),
+    TabData(text: 'Posts', icon: Icons.article),
+    TabData(text: 'Search', icon: Icons.search),
+    TabData(text: 'Mutations', icon: Icons.edit),
+    TabData(text: 'BackgroundRefetchExample', icon: Icons.code),
+    TabData(text: 'BackgroundForegroundExample', icon: Icons.code),
+    TabData(text: 'LifecycleAwareExample', icon: Icons.code),
+    TabData(text: 'WindowFocusExample', icon: Icons.code),
+    TabData(text: 'SmartCacheComparisonExample', icon: Icons.abc),
+  ];
+
+  final List<Widget> _tabViews = const [
+    UsersTab(),
+    UsersAsyncTab(),
+    PostsTab(),
+    SearchTab(),
+    MutationsTab(),
+    BackgroundRefetchExample(),
+    BackgroundForegroundExample(),
+    LifecycleAwareExample(),
+    WindowFocusExample(),
+    SmartCacheComparisonScreen(),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Start with a large initial page to allow infinite scrolling in both directions
+    const initialPage = 1000000;
+    _pageController = PageController(initialPage: initialPage);
+    _currentIndex = initialPage % _tabs.length;
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onPageChanged(int page) {
+    setState(() {
+      _currentIndex = page % _tabs.length;
+    });
+  }
+
+  void _onTabTapped(int index) {
+    final currentPage = _pageController.page?.round() ?? 0;
+    final currentTabIndex = currentPage % _tabs.length;
+    
+    // Calculate the shortest path to the target tab
+    int targetPage;
+    if (index == currentTabIndex) {
+      return; // Already on the target tab
+    }
+    
+    final forward = (index - currentTabIndex + _tabs.length) % _tabs.length;
+    final backward = (currentTabIndex - index + _tabs.length) % _tabs.length;
+    
+    if (forward <= backward) {
+      targetPage = currentPage + forward;
+    } else {
+      targetPage = currentPage - backward;
+    }
+    
+    _pageController.animateToPage(
+      targetPage,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Query Provider Example'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CacheDebugScreen(),
+                ),
+              );
+            },
+            tooltip: 'Cache Debug',
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: InfiniteTabBar(
+            tabs: _tabs,
+            currentIndex: _currentIndex,
+            onTabTapped: _onTabTapped,
           ),
         ),
-        body: const TabBarView(
-          children: [
-            UsersTab(),
-            UsersAsyncTab(),
-            PostsTab(),
-            SearchTab(),
-            MutationsTab(),
-            BackgroundRefetchExample(),
-            BackgroundForegroundExample(),
-            LifecycleAwareExample(),
-            WindowFocusExample(),
-            SmartCacheComparisonScreen(),
-          ],
+      ),
+      body: PageView.builder(
+        controller: _pageController,
+        onPageChanged: _onPageChanged,
+        itemBuilder: (context, index) {
+          final tabIndex = index % _tabs.length;
+          return _tabViews[tabIndex];
+        },
+      ),
+    );
+  }
+}
+
+class TabData {
+  const TabData({required this.text, required this.icon});
+  
+  final String text;
+  final IconData icon;
+}
+
+class InfiniteTabBar extends StatelessWidget {
+  const InfiniteTabBar({
+    super.key,
+    required this.tabs,
+    required this.currentIndex,
+    required this.onTabTapped,
+  });
+
+  final List<TabData> tabs;
+  final int currentIndex;
+  final ValueChanged<int> onTabTapped;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: kToolbarHeight,
+      decoration: BoxDecoration(
+        color: Theme.of(context).appBarTheme.backgroundColor,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).dividerColor,
+            width: 1,
+          ),
         ),
+      ),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        itemCount: tabs.length,
+        itemBuilder: (context, index) {
+          final isSelected = index == currentIndex;
+          final tab = tabs[index];
+          
+          return GestureDetector(
+            onTap: () => onTabTapped(index),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected 
+                    ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+                border: isSelected 
+                    ? Border.all(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 1,
+                      )
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    tab.icon,
+                    size: 20,
+                    color: isSelected 
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    tab.text,
+                    style: TextStyle(
+                      color: isSelected 
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
