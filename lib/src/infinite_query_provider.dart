@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meta/meta.dart';
 
+import 'app_lifecycle_manager.dart';
 import 'query_cache.dart';
 import 'query_client.dart';
 import 'query_options.dart';
+import 'window_focus_manager.dart';
 
 /// A function that fetches a page of data
 typedef InfiniteQueryFunction<T, TPageParam> = Future<T> Function(TPageParam pageParam);
@@ -226,13 +228,21 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
   Timer? _refetchTimer;
   int _retryCount = 0;
   bool _isInitialized = false;
+  
+  // Initialize lifecycle manager and window focus manager
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
+  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  bool _isRefetchPaused = false;
 
   void _initialize() {
     if (!_isInitialized) {
       _isInitialized = true;
       // Set up cache change listener for automatic UI updates
       _setupCacheListener();
-
+      
+      // Set up lifecycle and window focus callbacks
+      _setupLifecycleCallbacks();
+      _setupWindowFocusCallbacks();
     }
     
     if (options.enabled && options.refetchOnMount) {
@@ -241,6 +251,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
 
     // Set up automatic refetching if configured
     if (options.enabled && options.refetchInterval != null) {
+      //TODO: it costs time to refetch all pages
       _scheduleRefetch();
     }
   }
@@ -342,7 +353,9 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
       currentState.pages,
     );
 
-    if (previousPageParam == null) return;
+    if (previousPageParam == null) {
+      return;
+    }
 
     state = InfiniteQueryFetchingPreviousPage<T>(
       pages: currentState.pages,
@@ -391,7 +404,9 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
 
           if (i < currentState.pages.length - 1) {
             final nextParam = options.getNextPageParam(page, newPages);
-            if (nextParam == null) break;
+            if (nextParam == null) {
+              break;
+            }
             pageParam = nextParam;
           }
         }
@@ -417,11 +432,91 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
     _refetchTimer?.cancel();
     if (options.refetchInterval != null) {
       _refetchTimer = Timer.periodic(options.refetchInterval!, (_) {
-        if (options.enabled) {
+        if (options.enabled && _shouldRefetch()) {
           refetch();
         }
       });
     }
+  }
+
+  /// Check if refetch should proceed based on app state
+  bool _shouldRefetch() {
+    // If refetching is explicitly paused, don't refetch
+    if (_isRefetchPaused) {
+      return false;
+    }
+    
+    // If pausing in background is enabled and app is in background, don't refetch
+    if (options.pauseRefetchInBackground && _lifecycleManager.isInBackground) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /// Set up app lifecycle callbacks
+  void _setupLifecycleCallbacks() {
+    // Refetch when app comes to foreground (if enabled and data is stale)
+    if (options.refetchOnAppFocus) {
+      _lifecycleManager.addOnResumeCallback(_onAppResume);
+    }
+    
+    // Pause refetching when app goes to background (if enabled)
+    if (options.pauseRefetchInBackground) {
+      _lifecycleManager.addOnPauseCallback(_onAppPause);
+    }
+  }
+
+  void _onAppResume() {
+    debugPrint('App resumed in infinite query notifier');
+    // Resume refetching and check if we need to refetch stale data
+    _isRefetchPaused = false;
+    
+    if (_shouldRefetchOnFocus()) {
+      refetch();
+    }
+  }
+
+  void _onAppPause() {
+    debugPrint('App paused in infinite query notifier');
+    // Mark refetching as paused
+    _isRefetchPaused = true;
+  }
+
+  /// Set up window focus callbacks
+  void _setupWindowFocusCallbacks() {
+    // Refetch when window gains focus (if enabled and data is stale)
+    if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
+      _windowFocusManager.addOnFocusCallback(_onWindowFocus);
+    }
+  }
+
+  void _onWindowFocus() {
+    debugPrint('Window focused in infinite query notifier');
+    // Refetch stale data when window gains focus
+    if (_shouldRefetchOnFocus()) {
+      refetch();
+    }
+  }
+
+  /// Check if we should refetch when focus is gained
+  bool _shouldRefetchOnFocus() {
+    if (!options.enabled) {
+      return false;
+    }
+
+    final currentState = state;
+    if (currentState is InfiniteQuerySuccess<T>) {
+      // Check if data is stale based on stale time
+      final now = DateTime.now();
+      final fetchedAt = currentState.fetchedAt;
+      if (fetchedAt != null) {
+        final age = now.difference(fetchedAt);
+        return age > options.staleTime;
+      }
+    }
+    
+    return false;
   }
 
   /// Set up cache change listener for automatic UI updates
@@ -450,6 +545,22 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
     
     // Clean up cache listener
     getGlobalQueryCache().removeAllListeners(queryKey);
+    
+    // Clean up lifecycle callbacks
+    if (options.refetchOnAppFocus) {
+      _lifecycleManager.removeOnResumeCallback(_onAppResume);
+    }
+    if (options.pauseRefetchInBackground) {
+      _lifecycleManager.removeOnPauseCallback(_onAppPause);
+    }
+    
+    // Clean up window focus callbacks
+    if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
+      _windowFocusManager.removeOnFocusCallback(_onWindowFocus);
+    }
+    
+    // Reset initialization flag
+    _isInitialized = false;
     
     super.dispose();
   }
