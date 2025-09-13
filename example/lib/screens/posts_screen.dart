@@ -44,7 +44,7 @@ class PostsScreen extends ConsumerWidget {
   }
 }
 
-class PostsList extends StatelessWidget {
+class PostsList extends StatefulWidget {
   const PostsList({
     super.key,
     required this.pages,
@@ -61,20 +61,67 @@ class PostsList extends StatelessWidget {
   final Future<void> Function() onRefresh;
 
   @override
+  State<PostsList> createState() => _PostsListState();
+}
+
+class _PostsListState extends State<PostsList> {
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoadingMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent - 200) {
+      // Load more when user is 200 pixels from the bottom
+      _loadMoreIfNeeded();
+    }
+  }
+
+  Future<void> _loadMoreIfNeeded() async {
+    if (widget.hasNextPage && !widget.isFetchingNextPage && !_isLoadingMore) {
+      setState(() {
+        _isLoadingMore = true;
+      });
+      
+      try {
+        await widget.onLoadMore();
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoadingMore = false;
+          });
+        }
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Flatten all posts from all pages
-    final allPosts = pages.expand((page) => page.posts).toList();
+    final allPosts = widget.pages.expand((page) => page.posts).toList();
 
     return RefreshIndicator(
-      onRefresh: onRefresh,
+      onRefresh: widget.onRefresh,
       child: ListView.builder(
-        itemCount: allPosts.length + (hasNextPage ? 1 : 0),
+        controller: _scrollController,
+        itemCount: allPosts.length + (widget.hasNextPage || widget.isFetchingNextPage ? 1 : 0),
         itemBuilder: (context, index) {
           if (index == allPosts.length) {
-            // Load more indicator
-            return LoadMoreIndicator(
-              isLoading: isFetchingNextPage,
-              onLoadMore: onLoadMore,
+            // Auto-loading indicator
+            return AutoLoadingIndicator(
+              isLoading: widget.isFetchingNextPage || _isLoadingMore,
             );
           }
 
@@ -169,33 +216,36 @@ class PostListTile extends StatelessWidget {
   }
 }
 
-class LoadMoreIndicator extends StatelessWidget {
-  const LoadMoreIndicator({
+class AutoLoadingIndicator extends StatelessWidget {
+  const AutoLoadingIndicator({
     super.key,
     required this.isLoading,
-    required this.onLoadMore,
   });
 
   final bool isLoading;
-  final Future<void> Function() onLoadMore;
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+    if (!isLoading) {
+      // Return a small invisible widget when not loading
+      return const SizedBox(height: 16);
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return const Padding(
+      padding: EdgeInsets.all(16.0),
       child: Center(
-        child: ElevatedButton(
-          onPressed: onLoadMore,
-          child: const Text('Load More'),
+        child: Column(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 8),
+            Text(
+              'Loading more posts...',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+          ],
         ),
       ),
     );
