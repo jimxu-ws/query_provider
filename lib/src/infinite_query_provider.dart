@@ -322,7 +322,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
       final newPages = [...currentState.pages, nextPage];
 
       final hasNextPage = options.getNextPageParam(nextPage, newPages) != null;
-      final hasPreviousPage = options.getPreviousPageParam?.call(newPages.first, newPages) != null;
+      final hasPreviousPage = options.getPreviousPageParam?.call(nextPage, newPages) != null;
 
       state = InfiniteQuerySuccess<T>(
         pages: newPages,
@@ -349,7 +349,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
     }
 
     final previousPageParam = options.getPreviousPageParam!(
-      currentState.pages.first,
+      currentState.pages.last,
       currentState.pages,
     );
 
@@ -369,7 +369,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
       final newPages = [previousPage, ...currentState.pages];
 
       final hasNextPage = options.getNextPageParam(newPages.last, newPages) != null;
-      final hasPreviousPage = options.getPreviousPageParam!(newPages.first, newPages) != null;
+      final hasPreviousPage = options.getPreviousPageParam!(newPages.last, newPages) != null;
 
       state = InfiniteQuerySuccess<T>(
         pages: newPages,
@@ -412,7 +412,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
         }
 
         final hasNextPage = options.getNextPageParam(newPages.last, newPages) != null;
-        final hasPreviousPage = options.getPreviousPageParam?.call(newPages.first, newPages) != null;
+        final hasPreviousPage = options.getPreviousPageParam?.call(newPages.last, newPages) != null;
 
         state = InfiniteQuerySuccess<T>(
           pages: newPages,
