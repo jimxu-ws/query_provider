@@ -5,6 +5,7 @@ library query_provider;
 export 'package:flutter_riverpod/flutter_riverpod.dart' show StateNotifierProviderFamily;
 
 export 'src/app_lifecycle_manager.dart';
+export 'src/async_infinite_query_provider.dart';
 export 'src/async_query_provider.dart';
 export 'src/extensions/query_extensions.dart';
 export 'src/extensions/riverpod_extensions.dart';

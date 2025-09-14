@@ -746,11 +746,11 @@ extension InfiniteQueryStateExtension<T> on InfiniteQueryState<T> {
     return switch (this) {
       InfiniteQueryIdle<T>() => idle(),
       InfiniteQueryLoading<T>() => loading(),
-      InfiniteQuerySuccess<T> successState => success(successState.pages, successState.hasNextPage, successState.hasPreviousPage, successState.fetchedAt),
-      InfiniteQueryRefetching<T> refetchingState => refetching(refetchingState.pages, refetchingState.hasNextPage, refetchingState.hasPreviousPage, refetchingState.fetchedAt),
-      InfiniteQueryError<T> errorState => error(errorState.error, errorState.stackTrace),
-      InfiniteQueryFetchingNextPage<T> fetching => fetchingNextPage(fetching.pages, fetching.hasNextPage, fetching.hasPreviousPage, fetching.fetchedAt),
-      InfiniteQueryFetchingPreviousPage<T> fetching => fetchingPreviousPage(fetching.pages, fetching.hasNextPage, fetching.hasPreviousPage, fetching.fetchedAt),
+      final InfiniteQuerySuccess<T> successState => success(successState.pages, successState.hasNextPage, successState.hasPreviousPage, successState.fetchedAt),
+      final InfiniteQueryRefetching<T> refetchingState => refetching(refetchingState.pages, refetchingState.hasNextPage, refetchingState.hasPreviousPage, refetchingState.fetchedAt),
+      final InfiniteQueryError<T> errorState => error(errorState.error, errorState.stackTrace),
+      final InfiniteQueryFetchingNextPage<T> fetching => fetchingNextPage(fetching.pages, fetching.hasNextPage, fetching.hasPreviousPage, fetching.fetchedAt),
+      final InfiniteQueryFetchingPreviousPage<T> fetching => fetchingPreviousPage(fetching.pages, fetching.hasNextPage, fetching.hasPreviousPage, fetching.fetchedAt),
     };
   }
 }
