@@ -16,6 +16,7 @@ typedef QueryFunctionWithRef<T> = Future<T> Function(Ref ref);
 
 /// A function that fetches data with parameters
 typedef QueryFunctionWithParams<T, P> = Future<T> Function(P params);
+/// A function that fetches data with parameters and a reference
 typedef QueryFunctionWithParamsWithRef<T, P> = Future<T> Function(Ref ref, P params);
 
 // QueryCacheEntry is now defined in query_cache.dart
@@ -260,8 +261,10 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
         // Cache entry was removed, reset to idle
         if(options.onCacheEvicted != null){
           options.onCacheEvicted!(queryKey);
-        }else{
+        }else if(mounted){
           refetch();
+        }else{
+          _safeState(const QueryIdle());
         }
       }
       debugPrint('Cache listener called for key $queryKey in query notifier, change state to ${state.runtimeType}');
@@ -311,6 +314,22 @@ StateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProvider<T>({
     name: name,
   );
 
+/// Auto-dispose provider for creating queries
+AutoDisposeStateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProviderAutoDispose<T>({
+  required String name,
+  required QueryFunctionWithRef<T> queryFn,
+  QueryOptions<T> options = const QueryOptions(),
+}) => StateNotifierProvider.autoDispose<QueryNotifier<T>, QueryState<T>>(
+    (ref) => QueryNotifier<T>(
+      queryFunction: (){
+        return queryFn(ref);
+      },
+      options: options,
+      queryKey: name,
+    ),
+    name: name,
+  );
+
 
 /// Provider family for creating queries with parameters
 StateNotifierProviderFamily<QueryNotifier<T>, QueryState<T>, P> queryProviderFamily<T, P>({
@@ -318,6 +337,22 @@ StateNotifierProviderFamily<QueryNotifier<T>, QueryState<T>, P> queryProviderFam
   required QueryFunctionWithParamsWithRef<T, P> queryFn,
   QueryOptions<T> options = const QueryOptions(),
 }) => StateNotifierProvider.family<QueryNotifier<T>, QueryState<T>, P>(
+    (ref, param) => QueryNotifier<T>(
+      queryFunction: () { 
+        return queryFn(ref, param);
+      },
+      options: options,
+      queryKey: '$name-$param',
+    ),
+    name: name,
+  );
+
+/// Auto-dispose provider family for creating queries with parameters
+AutoDisposeStateNotifierProviderFamily<QueryNotifier<T>, QueryState<T>, P> queryProviderFamilyAutoDispose<T, P>({
+  required String name,
+  required QueryFunctionWithParamsWithRef<T, P> queryFn,
+  QueryOptions<T> options = const QueryOptions(),
+}) => StateNotifierProvider.autoDispose.family<QueryNotifier<T>, QueryState<T>, P>(
     (ref, param) => QueryNotifier<T>(
       queryFunction: () { 
         return queryFn(ref, param);

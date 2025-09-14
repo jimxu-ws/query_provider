@@ -12,7 +12,7 @@ import '../services/api_service.dart';
 /// - Optimistic updates support via setData method
 final postsInfiniteQueryProvider = infiniteQueryProvider<PostPage, int>(
   name: 'posts-infinite',
-  queryFn: (pageParam) => ApiService.fetchPosts(page: pageParam),
+  queryFn: (ref, pageParam) => ApiService.fetchPosts(page: pageParam),
   initialPageParam: 1,
   options: InfiniteQueryOptions<PostPage, int>(
     getNextPageParam: (lastPage, allPages) {

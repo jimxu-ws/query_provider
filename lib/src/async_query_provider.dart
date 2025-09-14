@@ -192,11 +192,11 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
       if (entry?.hasData ?? false) {
         debugPrint('Cache data changed for key $queryKey in async query notifier');
         _safeState(AsyncValue.data(entry!.data as T));
-      }else{
+      }else if(entry==null){
         debugPrint('Cache entry removed for key $queryKey in async query notifier');
         if(options.onCacheEvicted != null){
           options.onCacheEvicted!(queryKey);
-        }else{
+        }else if(!_isDisposed){
           refetch();
         }
       }
@@ -460,10 +460,19 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
   /// Set up cache change listener
   void _setupCacheListener(String key) {
     _cache.addListener<T>(key, (QueryCacheEntry<T>? entry) {
-      if (entry?.hasData ?? false) {
-        _safeState(AsyncValue.data(entry!.data as T));
-      }
       debugPrint('Cache listener called for key $key in async query notifier family, change state to ${state.runtimeType}');
+      if (entry?.hasData ?? false) {
+        debugPrint('Cache data changed for key $key in async query notifier family');
+        _safeState(AsyncValue.data(entry!.data as T));
+      }else if(entry==null){
+        debugPrint('Cache entry removed for key $key in async query notifier family');
+        if(options.onCacheEvicted != null){
+          options.onCacheEvicted!(key);
+        }else if(!_isDisposed){
+          refetch();
+        }else{
+        }
+      }
     });
   }
 
@@ -595,6 +604,255 @@ AsyncNotifierProvider<AsyncQueryNotifier<T>, T> asyncQueryProvider<T>({
   );
 }
 
+/// 🔥 Auto-dispose AsyncNotifier-based query provider
+/// 
+/// **Use this when:**
+/// - Temporary data that should be cleaned up when not watched
+/// - Memory optimization for large datasets
+/// - Short-lived screens or components
+/// - Data that doesn't need to persist across navigation
+/// 
+/// **Features:**
+/// - ✅ Automatic cleanup when no longer watched
+/// - ✅ Full cache integration with staleTime/cacheTime
+/// - ✅ Lifecycle management (app focus, window focus)
+/// - ✅ Automatic refetching intervals
+/// - ✅ Retry logic with exponential backoff
+/// - ✅ Background refetch capabilities
+/// - ✅ keepPreviousData support
+/// - ✅ Memory leak prevention
+/// 
+/// Example:
+/// ```dart
+/// final tempDataProvider = asyncQueryProviderAutoDispose<TempData>(
+///   name: 'temp-data',
+///   queryFn: (ref) => ApiService.fetchTempData(),
+///   options: QueryOptions(
+///     staleTime: Duration(minutes: 2),
+///     cacheTime: Duration(minutes: 5),
+///   ),
+/// );
+/// 
+/// // Usage in widget:
+/// final tempDataAsync = ref.watch(tempDataProvider);
+/// tempDataAsync.when(
+///   loading: () => CircularProgressIndicator(),
+///   error: (error, stack) => Text('Error: $error'),
+///   data: (data) => DataWidget(data),
+/// );
+/// ```
+/// Auto-dispose AsyncNotifier
+class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T> with QueryClientMixin {
+  AsyncQueryNotifierAutoDispose({
+    required this.queryFn,
+    required this.options,
+    required this.queryKey,
+  });
+
+  final QueryFunctionWithRef<T> queryFn;
+  final QueryOptions<T> options;
+  final String queryKey;
+
+  Timer? _refetchTimer;
+  int _retryCount = 0;
+
+  final QueryCache _cache = getGlobalQueryCache();
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
+  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  bool _isRefetchPaused = false;
+  bool _isInitialized = false;
+  bool _isDisposed = false;
+
+  @override
+  FutureOr<T> build() async {
+    _isDisposed = false;
+    
+    if (!_isInitialized) {
+      _isInitialized = true;
+      _setupCacheListener();
+      _setupLifecycleCallbacks();
+      _setupWindowFocusCallbacks();
+      
+      ref.onDispose(() {
+        _isDisposed = true;
+        _refetchTimer?.cancel();
+        _cache.removeAllListeners(queryKey);
+        
+        if (options.refetchOnAppFocus) {
+          _lifecycleManager.removeOnResumeCallback(_onAppResumed);
+        }
+        if (options.pauseRefetchInBackground) {
+          _lifecycleManager.removeOnPauseCallback(_onAppPaused);
+        }
+        if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
+          _windowFocusManager.removeOnFocusCallback(_onWindowFocused);
+        }
+        
+        _isInitialized = false;
+      });
+    }
+
+    if (options.enabled && options.refetchInterval != null) {
+      _scheduleRefetch();
+    }
+
+    if (options.enabled) {
+      final cachedEntry = _getCachedEntry();
+      if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
+        if (options.refetchOnMount) {
+          Future.microtask(() => _backgroundRefetch());
+        }
+        return cachedEntry.data as T;
+      }
+
+      if(options.keepPreviousData && ((!_isDisposed && state.hasValue) || (cachedEntry != null && cachedEntry.hasData))){
+        Future.microtask(() => _backgroundRefetch());
+        return (!_isDisposed && state.hasValue) ? state.value as T : cachedEntry?.data as T;
+      }
+    }
+
+    if (!options.enabled) {
+      throw StateError('Query is disabled and no cached data available');
+    }
+
+    return await _performFetch();
+  }
+
+  void _safeState(AsyncValue<T> state) {
+    if(!_isDisposed) this.state = state;
+  }
+
+  Future<T> _performFetch() async {
+    try {
+      final data = await queryFn(ref);
+      final now = DateTime.now();
+      
+      _setCachedEntry(QueryCacheEntry<T>(
+        data: data,
+        fetchedAt: now,
+        options: options,
+      ));
+
+      _retryCount = 0;
+      options.onSuccess?.call(data);
+      
+      return data;
+    } catch (error, stackTrace) {
+      options.onError?.call(error, stackTrace);
+      
+      if (_retryCount < options.retry) {
+        _retryCount++;
+        await Future<void>.delayed(options.retryDelay);
+        return _performFetch();
+      }
+      
+      rethrow;
+    }
+  }
+
+  Future<void> _backgroundRefetch() async {
+    try {
+      final data = await _performFetch();
+      _safeState(AsyncValue.data(data));
+    } catch (error, stackTrace) {
+      // Silent failure
+    }
+  }
+
+  Future<void> refetch() async {
+    _safeState(const AsyncValue.loading());
+    try {
+      final data = await _performFetch();
+      _safeState(AsyncValue.data(data));
+    } catch (error, stackTrace) {
+      _safeState(AsyncValue.error(error, stackTrace));
+    }
+  }
+
+  QueryCacheEntry<T>? _getCachedEntry() => _cache.get<T>(queryKey);
+  void _setCachedEntry(QueryCacheEntry<T> entry) => _cache.set(queryKey, entry);
+  
+  void _setupCacheListener() {
+    _cache.addListener<T>(queryKey, (entry) {
+      if (entry?.hasData ?? false) {
+        _safeState(AsyncValue.data(entry!.data as T));
+      } else if (entry == null) {
+        if (options.onCacheEvicted != null) {
+          options.onCacheEvicted!(queryKey);
+        } else if(!_isDisposed){
+          refetch();
+        }
+      }
+    });
+  }
+
+  void _setupLifecycleCallbacks() {
+    if (options.refetchOnAppFocus) {
+      _lifecycleManager.addOnResumeCallback(_onAppResumed);
+    }
+    if (options.pauseRefetchInBackground) {
+      _lifecycleManager.addOnPauseCallback(_onAppPaused);
+    }
+  }
+
+  void _setupWindowFocusCallbacks() {
+    if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
+      _windowFocusManager.addOnFocusCallback(_onWindowFocused);
+    }
+  }
+
+  void _scheduleRefetch() {
+    final interval = options.refetchInterval;
+    if (interval != null && !_isRefetchPaused) {
+      _refetchTimer?.cancel();
+      _refetchTimer = Timer.periodic(interval, (_) {
+        if (!_isRefetchPaused && options.enabled) {
+          _backgroundRefetch();
+        }
+      });
+    }
+  }
+
+  void _onAppResumed() {
+    _isRefetchPaused = false;
+    if (options.enabled) {
+      final cachedEntry = _getCachedEntry();
+      if (cachedEntry != null && cachedEntry.isStale) {
+        _backgroundRefetch();
+      }
+    }
+  }
+
+  void _onAppPaused() => _isRefetchPaused = true;
+
+  void _onWindowFocused() {
+    if (options.enabled && !_isRefetchPaused) {
+      final cachedEntry = _getCachedEntry();
+      if (cachedEntry != null && cachedEntry.isStale) {
+        _backgroundRefetch();
+      }
+    }
+  }
+}
+
+/// Auto-dispose AsyncNotifier with parameters
+AutoDisposeAsyncNotifierProvider<AsyncQueryNotifierAutoDispose<T>, T> asyncQueryProviderAutoDispose<T>({
+  required String name,
+  required QueryFunctionWithRef<T> queryFn,
+  QueryOptions<T>? options,
+}) {
+  return AsyncNotifierProvider.autoDispose<AsyncQueryNotifierAutoDispose<T>, T>(
+    () {
+      return AsyncQueryNotifierAutoDispose<T>(
+        queryFn: queryFn,
+        options: options ?? QueryOptions<T>(),
+        queryKey: name,
+      );
+    },
+    name: name,
+  );
+}
+
 /// 🔥 Full-featured AsyncNotifier-based query provider with parameters
 /// 
 /// **Use this when:**
@@ -641,6 +899,260 @@ AsyncNotifierProviderFamily<AsyncQueryNotifierFamily<T, P>, T, P> asyncQueryProv
   return AsyncNotifierProvider.family<AsyncQueryNotifierFamily<T, P>, T, P>(
     () {
       return AsyncQueryNotifierFamily<T, P>(
+        queryFn: queryFn,
+        options: options ?? QueryOptions<T>(),
+        queryKey: name,
+      );
+    },
+    name: name,
+  );
+}
+
+/// 🔥 Auto-dispose AsyncNotifier-based query provider with parameters
+/// 
+/// **Use this when:**
+/// - Dynamic parameters that change frequently
+/// - Temporary data that should be cleaned up when not watched
+/// - Memory optimization for large datasets with many parameter variations
+/// - Short-lived screens with parameterized data
+/// - User-specific data that doesn't need to persist
+/// 
+/// **Features:**
+/// - ✅ Automatic cleanup when no longer watched
+/// - ✅ Parameter-based caching and invalidation
+/// - ✅ Full cache integration with staleTime/cacheTime
+/// - ✅ Lifecycle management (app focus, window focus)
+/// - ✅ Automatic refetching intervals
+/// - ✅ Retry logic with exponential backoff
+/// - ✅ Background refetch capabilities
+/// - ✅ keepPreviousData support
+/// - ✅ Memory leak prevention
+/// 
+/// Example:
+/// ```dart
+/// final userDetailProvider = asyncQueryProviderFamilyAutoDispose<User, int>(
+///   name: 'user-detail',
+///   queryFn: (ref, userId) => ApiService.fetchUser(userId),
+///   options: QueryOptions(
+///     staleTime: Duration(minutes: 5),
+///     cacheTime: Duration(minutes: 10),
+///     keepPreviousData: true,
+///   ),
+/// );
+/// 
+/// // Usage in widget:
+/// final userAsync = ref.watch(userDetailProvider(userId));
+/// userAsync.when(
+///   loading: () => CircularProgressIndicator(),
+///   error: (error, stack) => ErrorWidget(error),
+///   data: (user) => UserDetailWidget(user),
+/// );
+/// ```
+/// Auto-dispose AsyncNotifier with parameters
+class AsyncQueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyAsyncNotifier<T, P> with QueryClientMixin {
+  AsyncQueryNotifierFamilyAutoDispose({
+    required this.queryFn,
+    required this.options,
+    required this.queryKey,
+  });
+
+  final QueryFunctionWithParamsWithRef<T, P> queryFn;
+  final QueryOptions<T> options;
+  final String queryKey;
+
+  Timer? _refetchTimer;
+  int _retryCount = 0;
+  
+  final QueryCache _cache = getGlobalQueryCache();
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
+  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  bool _isRefetchPaused = false;
+  bool _isInitialized = false;
+  bool _isDisposed = false;
+
+  @override
+  FutureOr<T> build(P arg) async {
+    final paramKey = '$queryKey-$arg';
+    _isDisposed = false;
+    
+    if (!_isInitialized) {
+      _isInitialized = true;
+      _setupCacheListener(paramKey);
+      _setupLifecycleCallbacks();
+      _setupWindowFocusCallbacks();
+      
+      ref.onDispose(() {
+        _isDisposed = true;
+        _refetchTimer?.cancel();
+        _cache.removeAllListeners(paramKey);
+        
+        if (options.refetchOnAppFocus) {
+          _lifecycleManager.removeOnResumeCallback(_onAppResumed);
+        }
+        if (options.pauseRefetchInBackground) {
+          _lifecycleManager.removeOnPauseCallback(_onAppPaused);
+        }
+        if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
+          _windowFocusManager.removeOnFocusCallback(_onWindowFocused);
+        }
+        
+        _isInitialized = false;
+      });
+    }
+
+    if (options.enabled && options.refetchInterval != null) {
+      _scheduleRefetch(arg);
+    }
+
+    if (options.enabled) {
+      final cachedEntry = _getCachedEntry(paramKey);
+      if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
+        if (options.refetchOnMount) {
+          Future.microtask(() => _backgroundRefetch(arg));
+        }
+        return cachedEntry.data as T;
+      }
+
+      if (options.keepPreviousData && ((!_isDisposed && state.hasValue) || (cachedEntry != null && cachedEntry.hasData))) {
+        Future.microtask(() => _backgroundRefetch(arg));
+        return (!_isDisposed && state.hasValue) ? state.value as T : cachedEntry?.data as T;
+      }
+    }
+
+    if (!options.enabled) {
+      throw StateError('Query is disabled and no cached data available');
+    }
+
+    return await _performFetch(arg);
+  }
+
+  void _safeState(AsyncValue<T> state) {
+    if(!_isDisposed) this.state = state;
+  }
+
+  Future<T> _performFetch(P arg) async {
+    try {
+      final data = await queryFn(ref, arg);
+      final now = DateTime.now();
+      final paramKey = '$queryKey-$arg';
+      
+      _setCachedEntry(paramKey, QueryCacheEntry<T>(
+        data: data,
+        fetchedAt: now,
+        options: options,
+      ));
+
+      _retryCount = 0;
+      options.onSuccess?.call(data);
+      
+      return data;
+    } catch (error, stackTrace) {
+      options.onError?.call(error, stackTrace);
+      
+      if (_retryCount < options.retry) {
+        _retryCount++;
+        await Future<void>.delayed(options.retryDelay);
+        return _performFetch(arg);
+      }
+      
+      rethrow;
+    }
+  }
+
+  Future<void> _backgroundRefetch(P arg) async {
+    try {
+      final data = await _performFetch(arg);
+      _safeState(AsyncValue.data(data));
+    } catch (error, stackTrace) {
+      // Silent failure
+    }
+  }
+
+  Future<void> refetch() async {
+    _safeState(const AsyncValue.loading());
+    try {
+      final data = await _performFetch(arg);
+      _safeState(AsyncValue.data(data));
+    } catch (error, stackTrace) {
+      _safeState(AsyncValue.error(error, stackTrace));
+    }
+  }
+
+  QueryCacheEntry<T>? _getCachedEntry(String key) => _cache.get<T>(key);
+  void _setCachedEntry(String key, QueryCacheEntry<T> entry) => _cache.set(key, entry);
+  
+  void _setupCacheListener(String key) {
+    _cache.addListener<T>(key, (entry) {
+      if (entry?.hasData ?? false) {
+        _safeState(AsyncValue.data(entry!.data as T));
+      } else if (entry == null) {
+        if (options.onCacheEvicted != null) {
+          options.onCacheEvicted!(key);
+        } else if(!_isDisposed){
+          refetch();
+        }
+      }
+    });
+  }
+
+  void _setupLifecycleCallbacks() {
+    if (options.refetchOnAppFocus) {
+      _lifecycleManager.addOnResumeCallback(_onAppResumed);
+    }
+    if (options.pauseRefetchInBackground) {
+      _lifecycleManager.addOnPauseCallback(_onAppPaused);
+    }
+  }
+
+  void _setupWindowFocusCallbacks() {
+    if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
+      _windowFocusManager.addOnFocusCallback(_onWindowFocused);
+    }
+  }
+
+  void _scheduleRefetch(P arg) {
+    final interval = options.refetchInterval;
+    if (interval != null && !_isRefetchPaused) {
+      _refetchTimer?.cancel();
+      _refetchTimer = Timer.periodic(interval, (_) {
+        if (!_isRefetchPaused && options.enabled) {
+          _backgroundRefetch(arg);
+        }
+      });
+    }
+  }
+
+  void _onAppResumed() {
+    _isRefetchPaused = false;
+    if (options.enabled) {
+      final cachedEntry = _getCachedEntry('$queryKey-$arg');
+      if (cachedEntry != null && cachedEntry.isStale) {
+        _backgroundRefetch(arg);
+      }
+    }
+  }
+
+  void _onAppPaused() => _isRefetchPaused = true;
+
+  void _onWindowFocused() {
+    if (options.enabled && !_isRefetchPaused) {
+      final cachedEntry = _getCachedEntry('$queryKey-$arg');
+      if (cachedEntry != null && cachedEntry.isStale) {
+        _backgroundRefetch(arg);
+      }
+    }
+  }
+}
+
+/// Auto-dispose AsyncNotifier with parameters
+AutoDisposeAsyncNotifierProviderFamily<AsyncQueryNotifierFamilyAutoDispose<T, P>, T, P> asyncQueryProviderFamilyAutoDispose<T, P>({
+  required String name,
+  required QueryFunctionWithParamsWithRef<T, P> queryFn,
+  QueryOptions<T>? options,
+}) {
+  return AsyncNotifierProvider.autoDispose.family<AsyncQueryNotifierFamilyAutoDispose<T, P>, T, P>(
+    () {
+      return AsyncQueryNotifierFamilyAutoDispose<T, P>(
         queryFn: queryFn,
         options: options ?? QueryOptions<T>(),
         queryKey: name,

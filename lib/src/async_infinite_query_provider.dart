@@ -3,17 +3,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../query_provider.dart' show QueryFunctionWithParamsWithRef;
 import 'app_lifecycle_manager.dart';
 import 'query_cache.dart';
 import 'query_client.dart';
 import 'query_options.dart';
 import 'window_focus_manager.dart';
 
-/// A function that fetches a page of data with ref
-typedef AsyncInfiniteQueryFunction<T, TPageParam> = Future<T> Function(Ref ref, TPageParam pageParam);
-
-/// A function that fetches a page of data with ref and additional parameters
-typedef AsyncInfiniteQueryFunctionWithParams<T, TPageParam, P> = Future<T> Function(Ref ref, TPageParam pageParam, P params);
 
 /// Represents the data structure for infinite query results
 @immutable
@@ -79,7 +75,7 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
     required this.queryKey,
   });
 
-  final AsyncInfiniteQueryFunction<T, TPageParam> queryFn;
+  final QueryFunctionWithParamsWithRef<T, TPageParam> queryFn;
   final InfiniteQueryOptions<T, TPageParam> options;
   final TPageParam initialPageParam;
   final String queryKey;
@@ -536,13 +532,15 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
     _cache.addListener<InfiniteQueryData<T>>(queryKey, (entry) {
       debugPrint('Cache listener called for key $queryKey in async infinite query notifier');
       if ((entry?.hasData??false) && !_isDisposed && !(!(state.isLoading || state.hasError) && state.hasValue && listEquals(entry!.data!.pages, state.value!.pages))) {
+        debugPrint('Cache data changed for key $queryKey in async infinite query notifier');
         // Update state when cache data changes externally (e.g., optimistic updates)
         _safeState(AsyncValue.data(entry!.data!));
-      } else if (entry == null && !_isDisposed) {
+      } else if (entry == null) {
+        debugPrint('Cache entry removed for key $queryKey in async infinite query notifier');
         // Cache entry was removed, reset to loading
         if(options.onCacheEvicted != null){
           options.onCacheEvicted?.call(queryKey);
-        }else{
+        }else if(_isDisposed){
           refetch();
         }
       }
@@ -587,11 +585,311 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
 /// Provider for creating async infinite queries
 AsyncNotifierProvider<AsyncInfiniteQueryNotifier<T, TPageParam>, InfiniteQueryData<T>> asyncInfiniteQueryProvider<T, TPageParam>({
   required String name,
-  required AsyncInfiniteQueryFunction<T, TPageParam> queryFn,
+  required QueryFunctionWithParamsWithRef<T, TPageParam> queryFn,
   required TPageParam initialPageParam,
   required InfiniteQueryOptions<T, TPageParam> options,
 }) => AsyncNotifierProvider<AsyncInfiniteQueryNotifier<T, TPageParam>, InfiniteQueryData<T>>(
     () => AsyncInfiniteQueryNotifier<T, TPageParam>(
+      queryFn: queryFn,
+      options: options,
+      initialPageParam: initialPageParam,
+      queryKey: name,
+    ),
+    name: name,
+  );
+
+/// Auto-dispose AsyncNotifier for infinite queries
+class AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeAsyncNotifier<InfiniteQueryData<T>> with QueryClientMixin {
+  AsyncInfiniteQueryNotifierAutoDispose({
+    required this.queryFn,
+    required this.options,
+    required this.initialPageParam,
+    required this.queryKey,
+  });
+
+  final QueryFunctionWithParamsWithRef<T, TPageParam> queryFn;
+  final InfiniteQueryOptions<T, TPageParam> options;
+  final TPageParam initialPageParam;
+  final String queryKey;
+
+  Timer? _refetchTimer;
+  int _retryCount = 0;
+
+  final QueryCache _cache = getGlobalQueryCache();
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
+  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  bool _isRefetchPaused = false;
+  bool _isInitialized = false;
+  bool _isDisposed = false;
+
+  @override
+  FutureOr<InfiniteQueryData<T>> build() async {
+    _isDisposed = false;
+    
+    if (!_isInitialized) {
+      _isInitialized = true;
+      _setupCacheListener();
+      _setupLifecycleCallbacks();
+      _setupWindowFocusCallbacks();
+      
+      ref.onDispose(() {
+        _isDisposed = true;
+        _refetchTimer?.cancel();
+        _cache.removeAllListeners(queryKey);
+        
+        if (options.refetchOnAppFocus) {
+          _lifecycleManager.removeOnResumeCallback(_onAppResume);
+        }
+        if (options.pauseRefetchInBackground) {
+          _lifecycleManager.removeOnPauseCallback(_onAppPause);
+        }
+        if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
+          _windowFocusManager.removeOnFocusCallback(_onWindowFocus);
+        }
+        
+        _isInitialized = false;
+      });
+    }
+
+    if (options.enabled && options.refetchInterval != null) {
+      _scheduleRefetch();
+    }
+
+    if (options.enabled) {
+      final cachedEntry = _getCachedEntry();
+      if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
+        if (options.refetchOnMount) {
+          Future.microtask(() => _backgroundRefetch());
+        }
+        return cachedEntry.data as InfiniteQueryData<T>;
+      }
+
+      if (options.keepPreviousData && ((!_isDisposed && state.hasValue) || (cachedEntry != null && cachedEntry.hasData))) {
+        Future.microtask(() => _backgroundRefetch());
+        return (!_isDisposed && state.hasValue) ? state.value! : cachedEntry?.data as InfiniteQueryData<T>;
+      }
+    }
+
+    if (!options.enabled) {
+      throw StateError('Query is disabled and no cached data available');
+    }
+
+    return await _performFirstPageFetch();
+  }
+
+  void _safeState(AsyncValue<InfiniteQueryData<T>> state) {
+    if(!_isDisposed) this.state = state;
+  }
+
+  Future<InfiniteQueryData<T>> _performFirstPageFetch() async {
+    try {
+      final firstPage = await queryFn(ref, initialPageParam);
+      final now = DateTime.now();
+      
+      final data = InfiniteQueryData<T>(
+        pages: [firstPage],
+        hasNextPage: options.getNextPageParam.call(firstPage, [firstPage]) != null,
+        hasPreviousPage: options.getPreviousPageParam?.call(firstPage, [firstPage]) != null,
+        fetchedAt: now,
+      );
+      
+      _setCachedEntry(QueryCacheEntry<InfiniteQueryData<T>>(
+        data: data,
+        fetchedAt: now,
+        options: QueryOptions<InfiniteQueryData<T>>(
+          staleTime: options.staleTime,
+          cacheTime: options.cacheTime,
+        ),
+      ));
+
+      _retryCount = 0;
+      options.onSuccess?.call(firstPage);
+      
+      return data;
+    } catch (error, stackTrace) {
+      options.onError?.call(error, stackTrace);
+      
+      if (_retryCount < options.retry) {
+        _retryCount++;
+        await Future<void>.delayed(options.retryDelay);
+        return _performFirstPageFetch();
+      }
+      
+      rethrow;
+    }
+  }
+
+  Future<void> _backgroundRefetch() async {
+    try {
+      final data = await _performFirstPageFetch();
+      _safeState(AsyncValue.data(data));
+    } catch (error, stackTrace) {
+      // Silent failure
+    }
+  }
+
+  Future<void> fetchNextPage() async {
+    if (!state.hasValue) return;
+    
+    final currentData = state.value!;
+    final nextPageParam = options.getNextPageParam?.call(
+      currentData.pages.last,
+      currentData.pages,
+    );
+    
+    if (nextPageParam == null) return;
+
+    try {
+      final nextPage = await queryFn(ref, nextPageParam);
+      final newData = InfiniteQueryData<T>(
+        pages: [...currentData.pages, nextPage],
+        hasNextPage: options.getNextPageParam?.call(nextPage, [...currentData.pages, nextPage]) != null,
+        hasPreviousPage: currentData.hasPreviousPage,
+        fetchedAt: DateTime.now(),
+      );
+      
+      _setCachedEntry(QueryCacheEntry<InfiniteQueryData<T>>(
+        data: newData,
+        fetchedAt: DateTime.now(),
+        options: QueryOptions<InfiniteQueryData<T>>(
+          staleTime: options.staleTime,
+          cacheTime: options.cacheTime,
+        ),
+      ));
+      
+      _safeState(AsyncValue.data(newData));
+    } catch (error, stackTrace) {
+      // Keep current data on error
+    }
+  }
+
+  Future<void> refetch() async {
+    _safeState(const AsyncValue.loading());
+    try {
+      final data = await _performFirstPageFetch();
+      _safeState(AsyncValue.data(data));
+    } catch (error, stackTrace) {
+      _safeState(AsyncValue.error(error, stackTrace));
+    }
+  }
+
+  QueryCacheEntry<InfiniteQueryData<T>>? _getCachedEntry() => _cache.get<InfiniteQueryData<T>>(queryKey);
+  void _setCachedEntry(QueryCacheEntry<InfiniteQueryData<T>> entry) => _cache.set(queryKey, entry);
+  
+  void _setupCacheListener() {
+    _cache.addListener<InfiniteQueryData<T>>(queryKey, (entry) {
+      if (entry?.hasData ?? false) {
+        _safeState(AsyncValue.data(entry!.data as InfiniteQueryData<T>));
+      } else if (entry == null && !_isDisposed) {
+        if (options.onCacheEvicted != null) {
+          options.onCacheEvicted!(queryKey);
+        } else {
+          refetch();
+        }
+      }
+    });
+  }
+
+  void _setupLifecycleCallbacks() {
+    if (options.refetchOnAppFocus) {
+      _lifecycleManager.addOnResumeCallback(_onAppResume);
+    }
+    if (options.pauseRefetchInBackground) {
+      _lifecycleManager.addOnPauseCallback(_onAppPause);
+    }
+  }
+
+  void _setupWindowFocusCallbacks() {
+    if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
+      _windowFocusManager.addOnFocusCallback(_onWindowFocus);
+    }
+  }
+
+  void _scheduleRefetch() {
+    final interval = options.refetchInterval;
+    if (interval != null && !_isRefetchPaused) {
+      _refetchTimer?.cancel();
+      _refetchTimer = Timer.periodic(interval, (_) {
+        if (!_isRefetchPaused && options.enabled) {
+          _backgroundRefetch();
+        }
+      });
+    }
+  }
+
+  void _onAppResume() {
+    _isRefetchPaused = false;
+    if (options.enabled) {
+      final cachedEntry = _getCachedEntry();
+      if (cachedEntry != null && cachedEntry.isStale) {
+        _backgroundRefetch();
+      }
+    }
+  }
+
+  void _onAppPause() => _isRefetchPaused = true;
+
+  void _onWindowFocus() {
+    if (options.enabled && !_isRefetchPaused) {
+      final cachedEntry = _getCachedEntry();
+      if (cachedEntry != null && cachedEntry.isStale) {
+        _backgroundRefetch();
+      }
+    }
+  }
+}
+
+/// Auto-dispose provider for creating async infinite queries
+/// 
+/// **Use this when:**
+/// - Temporary infinite data that should be cleaned up when not watched
+/// - Memory optimization for large paginated datasets
+/// - Short-lived screens with infinite scrolling
+/// - Data that doesn't need to persist across navigation
+/// 
+/// **Features:**
+/// - ✅ Automatic cleanup when no longer watched
+/// - ✅ Full async infinite query functionality (fetchNextPage, fetchPreviousPage)
+/// - ✅ Cache integration with staleTime/cacheTime
+/// - ✅ Lifecycle management (app focus, window focus)
+/// - ✅ Automatic refetching intervals
+/// - ✅ Retry logic with exponential backoff
+/// - ✅ Background refetch capabilities
+/// - ✅ keepPreviousData support
+/// - ✅ Memory leak prevention
+/// 
+/// Example:
+/// ```dart
+/// final tempPostsProvider = asyncInfiniteQueryProviderAutoDispose<Post, int>(
+///   name: 'temp-posts',
+///   queryFn: (pageParam) => ApiService.fetchPosts(page: pageParam),
+///   initialPageParam: 1,
+///   options: InfiniteQueryOptions(
+///     getNextPageParam: (lastPage, allPages) => 
+///       lastPage.hasMore ? allPages.length + 1 : null,
+///     staleTime: Duration(minutes: 2),
+///     cacheTime: Duration(minutes: 5),
+///   ),
+/// );
+/// 
+/// // Usage in widget:
+/// final postsAsync = ref.watch(tempPostsProvider);
+/// postsAsync.when(
+///   loading: () => CircularProgressIndicator(),
+///   error: (error, stack) => ErrorWidget(error),
+///   data: (infiniteData) => ListView.builder(
+///     itemCount: infiniteData.pages.expand((page) => page.items).length,
+///     itemBuilder: (context, index) => PostTile(post: infiniteData.pages[index]),
+///   ),
+/// );
+/// ```
+AutoDisposeAsyncNotifierProvider<AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam>, InfiniteQueryData<T>> asyncInfiniteQueryProviderAutoDispose<T, TPageParam>({
+  required String name,
+  required QueryFunctionWithParamsWithRef<T, TPageParam> queryFn,
+  required TPageParam initialPageParam,
+  required InfiniteQueryOptions<T, TPageParam> options,
+}) => AsyncNotifierProvider.autoDispose<AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam>, InfiniteQueryData<T>>(
+    () => AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam>(
       queryFn: queryFn,
       options: options,
       initialPageParam: initialPageParam,

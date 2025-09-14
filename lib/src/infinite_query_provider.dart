@@ -3,14 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../query_provider.dart' show QueryFunctionWithParamsWithRef, QueryFunctionWithParams;
 import 'app_lifecycle_manager.dart';
 import 'query_cache.dart';
 import 'query_client.dart';
 import 'query_options.dart';
 import 'window_focus_manager.dart';
-
-/// A function that fetches a page of data
-typedef InfiniteQueryFunction<T, TPageParam> = Future<T> Function(TPageParam pageParam);
 
 /// Represents cached infinite query data
 @immutable
@@ -316,7 +314,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
     _initialize();
   }
 
-  final InfiniteQueryFunction<T, TPageParam> queryFn;
+  final QueryFunctionWithParams<T, TPageParam> queryFn;
   final InfiniteQueryOptions<T, TPageParam> options;
   final TPageParam initialPageParam;
   final String queryKey;
@@ -885,8 +883,10 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
         // Cache entry was removed, reset to idle
         if(options.onCacheEvicted != null){
           options.onCacheEvicted?.call(queryKey);
-        }else{
+        }else if(mounted){
           refetch();
+        }else{
+          _safeState(const InfiniteQueryIdle());
         }
       }
     });
@@ -922,12 +922,73 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
 /// Provider for creating infinite queries
 StateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>> infiniteQueryProvider<T, TPageParam>({
   required String name,
-  required InfiniteQueryFunction<T, TPageParam> queryFn,
+  required QueryFunctionWithParamsWithRef<T, TPageParam> queryFn,
   required TPageParam initialPageParam,
   required InfiniteQueryOptions<T, TPageParam> options,
 }) => StateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>>(
     (ref) => InfiniteQueryNotifier<T, TPageParam>(
-      queryFn: queryFn,
+      queryFn: (param) => queryFn(ref, param),
+      options: options,
+      initialPageParam: initialPageParam,
+      queryKey: name,
+    ),
+    name: name,
+  );
+
+/// Auto-dispose provider for creating infinite queries
+/// 
+/// **Use this when:**
+/// - Temporary infinite data that should be cleaned up when not watched
+/// - Memory optimization for large paginated datasets
+/// - Short-lived screens with infinite scrolling
+/// - Data that doesn't need to persist across navigation
+/// 
+/// **Features:**
+/// - ✅ Automatic cleanup when no longer watched
+/// - ✅ Full infinite query functionality (fetchNextPage, fetchPreviousPage)
+/// - ✅ Cache integration with staleTime/cacheTime
+/// - ✅ Lifecycle management (app focus, window focus)
+/// - ✅ Automatic refetching intervals
+/// - ✅ Retry logic with exponential backoff
+/// - ✅ Background refetch capabilities
+/// - ✅ keepPreviousData support
+/// - ✅ Memory leak prevention
+/// 
+/// Example:
+/// ```dart
+/// final tempPostsProvider = infiniteQueryProviderAutoDispose<Post, int>(
+///   name: 'temp-posts',
+///   queryFn: (pageParam) => ApiService.fetchPosts(page: pageParam),
+///   initialPageParam: 1,
+///   options: InfiniteQueryOptions(
+///     getNextPageParam: (lastPage, allPages) => 
+///       lastPage.hasMore ? allPages.length + 1 : null,
+///     staleTime: Duration(minutes: 2),
+///     cacheTime: Duration(minutes: 5),
+///   ),
+/// );
+/// 
+/// // Usage in widget:
+/// final postsResult = ref.readInfiniteQueryResult(tempPostsProvider);
+/// postsResult.state.when(
+///   idle: () => Text('Tap to load'),
+///   loading: () => CircularProgressIndicator(),
+///   success: (pages, hasNextPage, hasPreviousPage, fetchedAt) => 
+///     ListView.builder(
+///       itemCount: pages.expand((page) => page.items).length,
+///       itemBuilder: (context, index) => PostTile(post: pages[index]),
+///     ),
+///   error: (error, stackTrace) => ErrorWidget(error),
+/// );
+/// ```
+AutoDisposeStateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>> infiniteQueryProviderAutoDispose<T, TPageParam>({
+  required String name,
+  required QueryFunctionWithParamsWithRef<T, TPageParam> queryFn,
+  required TPageParam initialPageParam,
+  required InfiniteQueryOptions<T, TPageParam> options,
+}) => StateNotifierProvider.autoDispose<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>>(
+    (ref) => InfiniteQueryNotifier<T, TPageParam>(
+      queryFn: (param) => queryFn(ref, param),
       options: options,
       initialPageParam: initialPageParam,
       queryKey: name,
