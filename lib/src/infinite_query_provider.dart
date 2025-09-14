@@ -22,7 +22,7 @@ sealed class InfiniteQueryState<T> {
   bool get isLoading => this is InfiniteQueryLoading<T>;
 
   /// Returns true if the query has data
-  bool get hasData => this is InfiniteQuerySuccess<T>;
+  bool get hasData => this is InfiniteQuerySuccess<T> || this is InfiniteQueryRefetching<T>;
 
   /// Returns true if the query has an error
   bool get hasError => this is InfiniteQueryError<T>;
@@ -39,6 +39,7 @@ sealed class InfiniteQueryState<T> {
   /// Returns the pages if available
   List<T>? get pages => switch (this) {
         final InfiniteQuerySuccess<T> success => success.pages,
+        final InfiniteQueryRefetching<T> refetching => refetching.pages,
         final InfiniteQueryFetchingNextPage<T> fetching => fetching.pages,
         final InfiniteQueryFetchingPreviousPage<T> fetching => fetching.pages,
         _ => null,
@@ -120,6 +121,52 @@ final class InfiniteQuerySuccess<T> extends InfiniteQueryState<T> {
     bool? hasPreviousPage,
     DateTime? fetchedAt,
   }) => InfiniteQuerySuccess<T>(
+      pages: pages ?? this.pages,
+      hasNextPage: hasNextPage ?? this.hasNextPage,
+      hasPreviousPage: hasPreviousPage ?? this.hasPreviousPage,
+      fetchedAt: fetchedAt ?? this.fetchedAt,
+    );
+}
+
+/// State when query has successfully loaded pages
+final class InfiniteQueryRefetching<T> extends InfiniteQueryState<T> {
+  const InfiniteQueryRefetching({
+    required this.pages,
+    this.hasNextPage = false,
+    this.hasPreviousPage = false,
+    this.fetchedAt,
+  });
+
+  final List<T> pages;
+  final bool hasNextPage;
+  final bool hasPreviousPage;
+  final DateTime? fetchedAt;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is InfiniteQueryRefetching<T> &&
+          other.pages == pages &&
+          other.hasNextPage == hasNextPage &&
+          other.hasPreviousPage == hasPreviousPage &&
+          other.fetchedAt == fetchedAt);
+
+  @override
+  int get hashCode => Object.hash(pages, hasNextPage, hasPreviousPage, fetchedAt);
+
+  @override
+  String toString() => 'InfiniteQueryRefetching<$T>('
+      'pages: ${pages.length}, '
+      'hasNextPage: $hasNextPage, '
+      'hasPreviousPage: $hasPreviousPage, '
+      'fetchedAt: $fetchedAt)';
+
+  InfiniteQueryRefetching<T> copyWith({
+    List<T>? pages,
+    bool? hasNextPage,
+    bool? hasPreviousPage,
+    DateTime? fetchedAt,
+  }) => InfiniteQueryRefetching<T>(
       pages: pages ?? this.pages,
       hasNextPage: hasNextPage ?? this.hasNextPage,
       hasPreviousPage: hasPreviousPage ?? this.hasPreviousPage,
@@ -256,13 +303,19 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
     }
   }
 
+  void _safeState(InfiniteQueryState<T> state) {
+    if(mounted){
+      this.state = state;
+    }
+  }
+
   /// Fetch the first page
   Future<void> _fetchFirstPage() async {
     if (!options.enabled) {
       return;
     }
 
-    state = const InfiniteQueryLoading();
+    _safeState(const InfiniteQueryLoading());
 
     try {
       final firstPage = await queryFn(initialPageParam);
@@ -272,12 +325,12 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
       final hasNextPage = options.getNextPageParam(firstPage, pages) != null;
       final hasPreviousPage = options.getPreviousPageParam?.call(firstPage, pages) != null;
 
-      state = InfiniteQuerySuccess<T>(
+      _safeState(InfiniteQuerySuccess<T>(
         pages: pages,
         hasNextPage: hasNextPage,
         hasPreviousPage: hasPreviousPage,
         fetchedAt: now,
-      );
+      ));
 
       _retryCount = 0;
       options.onSuccess?.call(firstPage);
@@ -288,7 +341,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
         return _fetchFirstPage();
       }
 
-      state = InfiniteQueryError(error, stackTrace: stackTrace);
+      _safeState(InfiniteQueryError(error, stackTrace: stackTrace));
       _retryCount = 0;
       options.onError?.call(error, stackTrace);
     }
@@ -310,31 +363,31 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
       return;
     }
 
-    state = InfiniteQueryFetchingNextPage<T>(
+    _safeState(InfiniteQueryFetchingNextPage<T>(
       pages: currentState.pages,
       hasNextPage: currentState.hasNextPage,
       hasPreviousPage: currentState.hasPreviousPage,
       fetchedAt: currentState.fetchedAt,
-    );
+    ));
 
     try {
       final nextPage = await queryFn(nextPageParam);
       final newPages = [...currentState.pages, nextPage];
 
       final hasNextPage = options.getNextPageParam(nextPage, newPages) != null;
-      final hasPreviousPage = options.getPreviousPageParam?.call(nextPage, newPages) != null;
+      final hasPreviousPage = options.getPreviousPageParam?.call(newPages.first, newPages) != null;
 
-      state = InfiniteQuerySuccess<T>(
+      _safeState(InfiniteQuerySuccess<T>(
         pages: newPages,
         hasNextPage: hasNextPage,
         hasPreviousPage: hasPreviousPage,
         fetchedAt: DateTime.now(),
-      );
+      ));
 
       options.onSuccess?.call(nextPage);
     } catch (error, stackTrace) {
       // Revert to previous success state on error
-      state = currentState;
+      _safeState(currentState);
       options.onError?.call(error, stackTrace);
     }
   }
@@ -349,7 +402,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
     }
 
     final previousPageParam = options.getPreviousPageParam!(
-      currentState.pages.last,
+      currentState.pages.first,
       currentState.pages,
     );
 
@@ -357,31 +410,31 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
       return;
     }
 
-    state = InfiniteQueryFetchingPreviousPage<T>(
+    _safeState(InfiniteQueryFetchingPreviousPage<T>(
       pages: currentState.pages,
       hasNextPage: currentState.hasNextPage,
       hasPreviousPage: currentState.hasPreviousPage,
       fetchedAt: currentState.fetchedAt,
-    );
+    ));
 
     try {
       final previousPage = await queryFn(previousPageParam);
       final newPages = [previousPage, ...currentState.pages];
 
       final hasNextPage = options.getNextPageParam(newPages.last, newPages) != null;
-      final hasPreviousPage = options.getPreviousPageParam!(newPages.last, newPages) != null;
+      final hasPreviousPage = options.getPreviousPageParam!(newPages.first, newPages) != null;
 
-      state = InfiniteQuerySuccess<T>(
+      _safeState(InfiniteQuerySuccess<T>(
         pages: newPages,
         hasNextPage: hasNextPage,
         hasPreviousPage: hasPreviousPage,
         fetchedAt: DateTime.now(),
-      );
+      ));
 
       options.onSuccess?.call(previousPage);
     } catch (error, stackTrace) {
       // Revert to previous success state on error
-      state = currentState;
+      _safeState(currentState);
       options.onError?.call(error, stackTrace);
     }
   }
@@ -391,7 +444,16 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
     final currentState = state;
     if (currentState is InfiniteQuerySuccess<T>) {
       // Refetch all existing pages
-      state = const InfiniteQueryLoading();
+      if(!options.keepPreviousData){
+        _safeState(const InfiniteQueryLoading());
+      }else{
+        _safeState(InfiniteQueryRefetching<T>(
+          pages: currentState.pages,
+          hasNextPage: currentState.hasNextPage,
+          hasPreviousPage: currentState.hasPreviousPage,
+          fetchedAt: currentState.fetchedAt,
+        ));
+      }
       
       try {
         final List<T> newPages = [];
@@ -412,19 +474,19 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
         }
 
         final hasNextPage = options.getNextPageParam(newPages.last, newPages) != null;
-        final hasPreviousPage = options.getPreviousPageParam?.call(newPages.last, newPages) != null;
+        final hasPreviousPage = options.getPreviousPageParam?.call(newPages.first, newPages) != null;
 
-        state = InfiniteQuerySuccess<T>(
+        _safeState(InfiniteQuerySuccess<T>(
           pages: newPages,
           hasNextPage: hasNextPage,
           hasPreviousPage: hasPreviousPage,
           fetchedAt: DateTime.now(),
-        );
+        ));
       } catch (error, stackTrace) {
-        state = InfiniteQueryError(error, stackTrace: stackTrace);
+        _safeState(InfiniteQueryError(error, stackTrace: stackTrace));
       }
     } else {
-      _fetchFirstPage();
+      await _fetchFirstPage();
     }
   }
 
@@ -526,15 +588,15 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
       if (entry?.hasData ?? false) {
         // Update state when cache data changes externally (e.g., optimistic updates)
         final pages = entry!.data!;
-        state = InfiniteQuerySuccess(
+        _safeState(InfiniteQuerySuccess(
           pages: pages,
           hasNextPage: true, // This would need to be determined properly
           hasPreviousPage: false,
           fetchedAt: entry.fetchedAt,
-        );
+        ));
       } else if (entry == null) {
         // Cache entry was removed, reset to idle
-        state = const InfiniteQueryIdle();
+        _safeState(const InfiniteQueryIdle());
       }
     });
   }
@@ -635,21 +697,21 @@ class InfiniteQueryResult<T> {
       };
 }
 
-/// Extension to create an infinite query result from a provider
-extension InfiniteQueryProviderExtension<T, TPageParam> on StateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>> {
-  /// Create an infinite query result that can be used in widgets
-  InfiniteQueryResult<T> use(WidgetRef ref) {
-    final notifier = ref.read(this.notifier);
-    final state = ref.watch(this);
+// /// Extension to create an infinite query result from a provider
+// extension InfiniteQueryProviderExtension<T, TPageParam> on StateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>> {
+//   /// Create an infinite query result that can be used in widgets
+//   InfiniteQueryResult<T> use(WidgetRef ref) {
+//     final notifier = ref.read(this.notifier);
+//     final state = ref.watch(this);
 
-    return InfiniteQueryResult<T>(
-      state: state,
-      fetchNextPage: notifier.fetchNextPage,
-      fetchPreviousPage: notifier.fetchPreviousPage,
-      refetch: notifier.refetch,
-    );
-  }
-}
+//     return InfiniteQueryResult<T>(
+//       state: state,
+//       fetchNextPage: notifier.fetchNextPage,
+//       fetchPreviousPage: notifier.fetchPreviousPage,
+//       refetch: notifier.refetch,
+//     );
+//   }
+// }
 
 /// Extension to create an infinite query result from a provider
 extension WidgetRefReadQueryResult on WidgetRef {
