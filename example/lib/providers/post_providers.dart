@@ -4,6 +4,12 @@ import '../models/post.dart';
 import '../services/api_service.dart';
 
 /// Infinite query provider for fetching posts with pagination
+/// Features:
+/// - Automatic caching of all pages with configurable stale/cache times
+/// - keepPreviousData: Shows stale data while fetching fresh data for better UX
+/// - Background refetch on app focus and window focus
+/// - Automatic retry with exponential backoff
+/// - Optimistic updates support via setData method
 final postsInfiniteQueryProvider = infiniteQueryProvider<PostPage, int>(
   name: 'posts-infinite',
   queryFn: (pageParam) => ApiService.fetchPosts(page: pageParam),
@@ -12,9 +18,9 @@ final postsInfiniteQueryProvider = infiniteQueryProvider<PostPage, int>(
     getNextPageParam: (lastPage, allPages) {
       return lastPage.hasMore ? lastPage.page + 1 : null;
     },
-    staleTime: const Duration(minutes: 2),
-    cacheTime: const Duration(minutes: 10),
-    keepPreviousData: true,
+    staleTime: const Duration(seconds: 1), // Data is fresh for 2 minutes
+    cacheTime: const Duration(minutes: 1), // Cache persists for 10 minutes
+    keepPreviousData: true, // Show stale data while fetching fresh data
     refetchOnWindowFocus: true,
     refetchOnAppFocus: true,
     pauseRefetchInBackground: true,

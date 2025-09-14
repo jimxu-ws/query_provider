@@ -149,7 +149,7 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
   void _fetchFirstPageInBackground() {
     _fetchFirstPage().then((newData) {
       // Update state with fresh data
-      state = AsyncValue.data(newData);
+      _safeState(AsyncValue.data(newData));
     }).catchError((Object error, StackTrace stackTrace) {
       // On error, keep the current stale data but log the error
       debugPrint('Background fetch failed for key $queryKey: $error');
@@ -196,16 +196,16 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
       }
 
       // Cache the error
-      // _cache.setError<InfiniteQueryData<T>>(
-      //   queryKey,
-      //   error,
-      //   stackTrace: stackTrace,
-      //   options: QueryOptions<InfiniteQueryData<T>>(
-      //     staleTime: options.staleTime,
-      //     cacheTime: options.cacheTime,
-      //     enabled: options.enabled,
-      //   ),
-      // );
+      _cache.setError<InfiniteQueryData<T>>(
+        queryKey,
+        error,
+        stackTrace: stackTrace,
+        options: QueryOptions<InfiniteQueryData<T>>(
+          staleTime: options.staleTime,
+          cacheTime: options.cacheTime,
+          enabled: options.enabled,
+        ),
+      );
 
       _retryCount = 0;
       options.onError?.call(error, stackTrace);
@@ -256,7 +256,7 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
       ));
 
       // Update state
-      state = AsyncValue.data(newData);
+      _safeState(AsyncValue.data(newData));
       options.onSuccess?.call(nextPage);
     } catch (error, stackTrace) {
       // Don't update state on error, keep current data
@@ -312,7 +312,7 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
       ));
 
       // Update state
-      state = AsyncValue.data(newData);
+      _safeState(AsyncValue.data(newData));
       options.onSuccess?.call(previousPage);
     } catch (error, stackTrace) {
       // Don't update state on error, keep current data
@@ -332,7 +332,7 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
       // If keepPreviousData is enabled, don't change the state to loading
       // Keep showing current data while fetching
       if (!options.keepPreviousData) {
-        state = const AsyncValue.loading();
+        _safeState(const AsyncValue.loading());
       }
       
       try {
@@ -376,7 +376,7 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
         ));
 
         // Update state
-        state = AsyncValue.data(newData);
+        _safeState(AsyncValue.data(newData));
       } catch (error, stackTrace) {
         // If keepPreviousData is enabled and we have current data, don't show error state
         // Keep showing the current data
@@ -384,17 +384,17 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
           debugPrint('Refetch failed but keeping previous data for key $queryKey: $error');
           // Don't update state, keep current data
         } else {
-          state = AsyncValue.error(error, stackTrace);
+          _safeState(AsyncValue.error(error, stackTrace));
         }
       }
     } else {
       // If no current data, fetch first page
-      state = const AsyncValue.loading();
+      _safeState(const AsyncValue.loading());
       try {
         final newData = await _fetchFirstPage();
-        state = AsyncValue.data(newData);
+        _safeState(AsyncValue.data(newData));
       } catch (error, stackTrace) {
-        state = AsyncValue.error(error, stackTrace);
+        _safeState(AsyncValue.error(error, stackTrace));
       }
     }
   }
@@ -420,13 +420,13 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
       ),
     ));
     
-    state = AsyncValue.data(updatedData);
+    _safeState(AsyncValue.data(updatedData));
   }
 
   /// Get current cached data
   InfiniteQueryData<T>? getCachedData() {
     final entry = _getCachedEntry();
-    return entry?.hasData == true ? entry!.data as InfiniteQueryData<T> : null;
+    return (entry?.hasData??false) ? entry!.data! : null;
   }
 
   void _scheduleRefetch() {
@@ -535,18 +535,26 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
   void _setupCacheListener() {
     _cache.addListener<InfiniteQueryData<T>>(queryKey, (entry) {
       debugPrint('Cache listener called for key $queryKey in async infinite query notifier');
-      if (entry?.hasData == true && !_isDisposed) {
+      if ((entry?.hasData??false) && !_isDisposed && !(!(state.isLoading || state.hasError) && state.hasValue && listEquals(entry!.data!.pages, state.value!.pages))) {
         // Update state when cache data changes externally (e.g., optimistic updates)
-        state = AsyncValue.data(entry!.data as InfiniteQueryData<T>);
+        _safeState(AsyncValue.data(entry!.data!));
       } else if (entry == null && !_isDisposed) {
         // Cache entry was removed, reset to loading
-        state = const AsyncValue.loading();
+        _safeState(const AsyncValue.loading());
       }
     });
   }
 
+  void _safeState(AsyncValue<InfiniteQueryData<T>> state) {
+    if(!_isDisposed){
+      this.state = state;
+    }
+  }
+
   void _dispose() {
-    if (_isDisposed) return;
+    if (_isDisposed) {
+      return;
+    }
     _isDisposed = true;
     
     _refetchTimer?.cancel();
