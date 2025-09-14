@@ -22,38 +22,13 @@ class PostsScreen extends ConsumerWidget {
         onLoadMore: infiniteQuery.fetchNextPage,
         onRefresh: infiniteQuery.refetch,
       ),
-      refetching: (pages, hasNextPage, hasPreviousPage, fetchedAt) => Stack(
-        children: [
-          PostsList(
+      refetching: (pages, hasNextPage, hasPreviousPage, fetchedAt) => PostsList(
             pages: pages,
             hasNextPage: hasNextPage,
             isFetchingNextPage: infiniteQuery.isFetchingNextPage,
             onLoadMore: infiniteQuery.fetchNextPage,
             onRefresh: infiniteQuery.refetch,
           ),
-          const Positioned(
-            top: 16,
-            right: 16,
-            child: Card(
-              child: Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    SizedBox(width: 8),
-                    Text('Refreshing...'),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
       error: (error, stackTrace) => ErrorView(
         error: error,
         onRetry: infiniteQuery.refetch,

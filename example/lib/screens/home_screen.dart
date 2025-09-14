@@ -6,6 +6,7 @@ import '../examples/background_foreground_example.dart';
 import '../examples/background_refetch_example.dart';
 import '../examples/lifecycle_aware_example.dart';
 import '../examples/window_focus_example.dart';
+import '../providers/post_providers.dart';
 import '../providers/user_providers.dart';
 import 'user_detail_async_screen.dart';
 import '../models/user.dart';
@@ -147,7 +148,7 @@ class TabData {
   final IconData icon;
 }
 
-class InfiniteTabBar extends StatelessWidget {
+class InfiniteTabBar extends ConsumerWidget {
   const InfiniteTabBar({
     super.key,
     required this.tabs,
@@ -160,7 +161,8 @@ class InfiniteTabBar extends StatelessWidget {
   final ValueChanged<int> onTabTapped;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final infiniteQuery = ref.readInfiniteQueryResult(postsInfiniteQueryProvider);
     return Container(
       height: kToolbarHeight,
       decoration: BoxDecoration(
@@ -209,7 +211,15 @@ class InfiniteTabBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    tab.text,
+                    index == 2 
+                      ? infiniteQuery.state.when(
+                          success: (pages, hasNextPage, hasPreviousPage, fetchedAt) => '${pages.length} posts',
+                          refetching: (pages, hasNextPage, hasPreviousPage, fetchedAt) => 'Refreshing...',
+                          error: (error, stackTrace) => 'Error: $error',
+                          fetchingNextPage: (pages, hasNextPage, hasPreviousPage, fetchedAt) => 'Loading...',
+                          fetchingPreviousPage: (pages, hasNextPage, hasPreviousPage, fetchedAt) => 'Loading...', idle: () { return ''; }, loading: () { return ''; },
+                        )
+                      : tab.text,
                     style: TextStyle(
                       color: isSelected 
                           ? Theme.of(context).colorScheme.primary
