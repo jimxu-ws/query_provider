@@ -540,7 +540,11 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
         _safeState(AsyncValue.data(entry!.data!));
       } else if (entry == null && !_isDisposed) {
         // Cache entry was removed, reset to loading
-        _safeState(const AsyncValue.loading());
+        if(options.onCacheEvicted != null){
+          options.onCacheEvicted?.call(queryKey);
+        }else{
+          refetch();
+        }
       }
     });
   }

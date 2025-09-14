@@ -188,8 +188,17 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
   /// Set up cache change listener
   void _setupCacheListener() {
     _cache.addListener<T>(queryKey, (QueryCacheEntry<T>? entry) {
+      debugPrint('Cache listener called for key $queryKey in async query notifier');
       if (entry?.hasData ?? false) {
+        debugPrint('Cache data changed for key $queryKey in async query notifier');
         _safeState(AsyncValue.data(entry!.data as T));
+      }else{
+        debugPrint('Cache entry removed for key $queryKey in async query notifier');
+        if(options.onCacheEvicted != null){
+          options.onCacheEvicted!(queryKey);
+        }else{
+          refetch();
+        }
       }
     });
   }

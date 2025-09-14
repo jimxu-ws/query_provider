@@ -126,12 +126,12 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
       }
 
       // Cache the error
-      // _cache.setError<T>(
-      //   queryKey,
-      //   error,
-      //   stackTrace: stackTrace,
-      //   options: options,
-      // );
+      _cache.setError<T>(
+        queryKey,
+        error,
+        stackTrace: stackTrace,
+        options: options,
+      );
 
       _safeState(QueryError(error, stackTrace: stackTrace));
       _retryCount = 0;
@@ -258,7 +258,11 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
         _safeState(QuerySuccess(entry!.data as T, fetchedAt: entry.fetchedAt));
       } else if (entry == null) {
         // Cache entry was removed, reset to idle
-        _safeState(const QueryIdle());
+        if(options.onCacheEvicted != null){
+          options.onCacheEvicted!(queryKey);
+        }else{
+          refetch();
+        }
       }
       debugPrint('Cache listener called for key $queryKey in query notifier, change state to ${state.runtimeType}');
     });

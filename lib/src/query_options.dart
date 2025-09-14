@@ -17,6 +17,7 @@ class QueryOptions<T> {
     this.keepPreviousData = false,
     this.onSuccess,
     this.onError,
+    this.onCacheEvicted,
   });
 
   /// Time after which data is considered stale and will be refetched
@@ -57,6 +58,9 @@ class QueryOptions<T> {
 
   /// Callback called on query error
   final void Function(Object error, StackTrace? stackTrace)? onError;
+
+  /// Callback called when the query is refetched
+  final void Function(String queryKey)? onCacheEvicted;
 
   QueryOptions<T> copyWith({
     Duration? staleTime,

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:meta/meta.dart';
 
 import 'app_lifecycle_manager.dart';
 import 'query_cache.dart';
@@ -711,12 +710,12 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
       } catch (error, stackTrace) {
         // If keepPreviousData is enabled, don't show error state
         // Keep showing the current data
-        if (options.keepPreviousData) {
+        // if (options.keepPreviousData) {
           debugPrint('Refetch failed but keeping previous data for infinite query key $queryKey: $error');
           // Don't update state, keep current data
-        } else {
+        // } else {
           _safeState(InfiniteQueryError(error, stackTrace: stackTrace));
-        }
+        // }
       }
     } else {
       await _fetchFirstPage();
@@ -884,7 +883,11 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
       } else if (entry == null) {
         debugPrint('Cache entry removed for key $queryKey in infinite query notifier');
         // Cache entry was removed, reset to idle
-        _safeState(const InfiniteQueryIdle());
+        if(options.onCacheEvicted != null){
+          options.onCacheEvicted?.call(queryKey);
+        }else{
+          refetch();
+        }
       }
     });
   }
