@@ -36,6 +36,9 @@ sealed class InfiniteQueryState<T> {
   /// Returns true if the query is fetching the previous page
   bool get isFetchingPreviousPage => this is InfiniteQueryFetchingPreviousPage<T>;
 
+  /// Returns true if the query is refetching
+  bool get isRefetching => this is InfiniteQueryRefetching<T>;
+
   /// Returns the pages if available
   List<T>? get pages => switch (this) {
         final InfiniteQuerySuccess<T> success => success.pages,
@@ -444,15 +447,15 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
     final currentState = state;
     if (currentState is InfiniteQuerySuccess<T>) {
       // Refetch all existing pages
-      if(!options.keepPreviousData){
-        _safeState(const InfiniteQueryLoading());
-      }else{
+      if(options.keepPreviousData){
         _safeState(InfiniteQueryRefetching<T>(
           pages: currentState.pages,
           hasNextPage: currentState.hasNextPage,
           hasPreviousPage: currentState.hasPreviousPage,
           fetchedAt: currentState.fetchedAt,
         ));
+      }else{
+        _safeState(const InfiniteQueryLoading());
       }
       
       try {
@@ -726,5 +729,28 @@ extension WidgetRefReadQueryResult on WidgetRef {
       fetchPreviousPage: notifier.fetchPreviousPage,
       refetch: notifier.refetch,
     );
+  }
+}
+
+// Extension to handle infinite query state more elegantly
+extension InfiniteQueryStateExtension<T> on InfiniteQueryState<T> {
+  R when<R>({
+    required R Function() idle,
+    required R Function() loading,
+    required R Function(List<T> pages, bool hasNextPage, bool hasPreviousPage, DateTime? fetchedAt) success,
+    required R Function(List<T> pages, bool hasNextPage, bool hasPreviousPage, DateTime? fetchedAt) refetching,
+    required R Function(Object error, StackTrace? stackTrace) error,
+    required R Function(List<T> pages, bool hasNextPage, bool hasPreviousPage, DateTime? fetchedAt) fetchingNextPage,
+    required R Function(List<T> pages, bool hasNextPage, bool hasPreviousPage, DateTime? fetchedAt) fetchingPreviousPage,
+  }) {
+    return switch (this) {
+      InfiniteQueryIdle<T>() => idle(),
+      InfiniteQueryLoading<T>() => loading(),
+      InfiniteQuerySuccess<T> successState => success(successState.pages, successState.hasNextPage, successState.hasPreviousPage, successState.fetchedAt),
+      InfiniteQueryRefetching<T> refetchingState => refetching(refetchingState.pages, refetchingState.hasNextPage, refetchingState.hasPreviousPage, refetchingState.fetchedAt),
+      InfiniteQueryError<T> errorState => error(errorState.error, errorState.stackTrace),
+      InfiniteQueryFetchingNextPage<T> fetching => fetchingNextPage(fetching.pages, fetching.hasNextPage, fetching.hasPreviousPage, fetching.fetchedAt),
+      InfiniteQueryFetchingPreviousPage<T> fetching => fetchingPreviousPage(fetching.pages, fetching.hasNextPage, fetching.hasPreviousPage, fetching.fetchedAt),
+    };
   }
 }

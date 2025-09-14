@@ -14,6 +14,14 @@ final postsInfiniteQueryProvider = infiniteQueryProvider<PostPage, int>(
     },
     staleTime: const Duration(minutes: 2),
     cacheTime: const Duration(minutes: 10),
+    keepPreviousData: true,
+    refetchOnWindowFocus: true,
+    refetchOnAppFocus: true,
+    pauseRefetchInBackground: true,
+    refetchInterval: const Duration(seconds: 30),
+    retry: 3,
+    retryDelay: const Duration(seconds: 1),
+    enabled: true,
   ),
 );
 

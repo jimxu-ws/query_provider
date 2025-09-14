@@ -22,6 +22,38 @@ class PostsScreen extends ConsumerWidget {
         onLoadMore: infiniteQuery.fetchNextPage,
         onRefresh: infiniteQuery.refetch,
       ),
+      refetching: (pages, hasNextPage, hasPreviousPage, fetchedAt) => Stack(
+        children: [
+          PostsList(
+            pages: pages,
+            hasNextPage: hasNextPage,
+            isFetchingNextPage: infiniteQuery.isFetchingNextPage,
+            onLoadMore: infiniteQuery.fetchNextPage,
+            onRefresh: infiniteQuery.refetch,
+          ),
+          const Positioned(
+            top: 16,
+            right: 16,
+            child: Card(
+              child: Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 8),
+                    Text('Refreshing...'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       error: (error, stackTrace) => ErrorView(
         error: error,
         onRetry: infiniteQuery.refetch,
@@ -295,26 +327,5 @@ class ErrorView extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// Extension to handle infinite query state more elegantly
-extension InfiniteQueryStateExtension<T> on InfiniteQueryState<T> {
-  R when<R>({
-    required R Function() idle,
-    required R Function() loading,
-    required R Function(List<T> pages, bool hasNextPage, bool hasPreviousPage, DateTime? fetchedAt) success,
-    required R Function(Object error, StackTrace? stackTrace) error,
-    required R Function(List<T> pages, bool hasNextPage, bool hasPreviousPage, DateTime? fetchedAt) fetchingNextPage,
-    required R Function(List<T> pages, bool hasNextPage, bool hasPreviousPage, DateTime? fetchedAt) fetchingPreviousPage,
-  }) {
-    return switch (this) {
-      InfiniteQueryIdle<T>() => idle(),
-      InfiniteQueryLoading<T>() => loading(),
-      InfiniteQuerySuccess<T> successState => success(successState.pages, successState.hasNextPage, successState.hasPreviousPage, successState.fetchedAt),
-      InfiniteQueryError<T> errorState => error(errorState.error, errorState.stackTrace),
-      InfiniteQueryFetchingNextPage<T> fetching => fetchingNextPage(fetching.pages, fetching.hasNextPage, fetching.hasPreviousPage, fetching.fetchedAt),
-      InfiniteQueryFetchingPreviousPage<T> fetching => fetchingPreviousPage(fetching.pages, fetching.hasNextPage, fetching.hasPreviousPage, fetching.fetchedAt),
-    };
   }
 }
