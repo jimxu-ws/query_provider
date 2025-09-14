@@ -126,12 +126,12 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
       }
 
       // Cache the error
-      _cache.setError<T>(
-        queryKey,
-        error,
-        stackTrace: stackTrace,
-        options: options,
-      );
+      // _cache.setError<T>(
+      //   queryKey,
+      //   error,
+      //   stackTrace: stackTrace,
+      //   options: options,
+      // );
 
       _safeState(QueryError(error, stackTrace: stackTrace));
       _retryCount = 0;
