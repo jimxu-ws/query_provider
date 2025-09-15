@@ -106,7 +106,7 @@ SmartQueryResult<User> useUserQuery(WidgetRef ref, int userId) {
 }
 
 /// Query provider for fetching a single user by ID (using function approach)
-StateNotifierProvider<QueryNotifier<User>, QueryState<User>> userQueryProvider(int userId) {
+NotifierProvider<QueryNotifier<User>, QueryState<User>> userQueryProvider(int userId) {
   return queryProvider<User>(
     name: 'user-$userId',
     queryFn: (ref) => ApiService.fetchUser(userId),
@@ -138,8 +138,8 @@ final userSearchProviderFamily = queryProviderFamily<List<User>, String>(
 );
 
 /// Alternative: Using queryProviderWithParams (with fixed parameters)
-StateNotifierProvider<QueryNotifier<User>, QueryState<User>> userQueryWithParams(int userId) {
-  return queryProviderWithParams<User, int>(
+StateNotifierProvider<QueryStateNotifier<User>, QueryState<User>> userQueryWithParams(int userId) {
+  return queryStateProviderWithParams<User, int>(
     name: 'user',
     params: userId,
     queryFn: (ref, userId) => ApiService.fetchUser(userId),

@@ -32,7 +32,7 @@ final postsInfiniteQueryProvider = infiniteQueryProvider<PostPage, int>(
 );
 
 /// Query provider for fetching posts by user ID
-StateNotifierProvider<QueryNotifier<List<Post>>, QueryState<List<Post>>> userPostsQueryProvider(int userId) {
+NotifierProvider<QueryNotifier<List<Post>>, QueryState<List<Post>>> userPostsQueryProvider(int userId) {
   return queryProvider<List<Post>>(
     name: 'user-posts-$userId',
     queryFn: (ref) => ApiService.fetchUserPosts(userId),

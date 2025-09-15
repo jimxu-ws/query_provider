@@ -7,7 +7,7 @@ import 'app_lifecycle_manager.dart';
 import 'query_cache.dart';
 import 'query_client.dart';
 import 'query_options.dart';
-import 'query_provider.dart' show QueryFunctionWithParamsWithRef, QueryFunctionWithRef;
+import 'state_query_provider.dart' show QueryFunctionWithParamsWithRef, QueryFunctionWithRef;
 import 'window_focus_manager.dart';
 
 /// 🔥 Modern AsyncNotifier-based query implementation

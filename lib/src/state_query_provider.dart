@@ -22,9 +22,9 @@ typedef QueryFunctionWithParamsWithRef<T, P> = Future<T> Function(Ref ref, P par
 // QueryCacheEntry is now defined in query_cache.dart
 
 /// Notifier for managing query state
-class QueryNotifier<T> extends StateNotifier<QueryState<T>>
+class QueryStateNotifier<T> extends StateNotifier<QueryState<T>>
     with QueryClientMixin {
-  QueryNotifier({
+  QueryStateNotifier({
     required this.queryFunction,
     required this.options,
     required this.queryKey,
@@ -299,12 +299,31 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>>
 }
 
 /// Provider for creating queries
-StateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProvider<T>({
+/// 
+/// **⚠️ DEPRECATED:** StateNotifier is deprecated by Riverpod. 
+/// Use `asyncQueryProvider` instead for new code.
+/// 
+/// Migration:
+/// ```dart
+/// // Old (deprecated)
+/// final userProvider = queryProvider<User>(
+///   name: 'user',
+///   queryFn: (ref) => fetchUser(),
+/// );
+/// 
+/// // New (recommended)
+/// final userProvider = asyncQueryProvider<User>(
+///   name: 'user',
+///   queryFn: (ref) => fetchUser(),
+/// );
+/// ```
+@Deprecated('Use asyncQueryProvider instead. StateNotifier is deprecated by Riverpod.')
+StateNotifierProvider<QueryStateNotifier<T>, QueryState<T>> queryStateProvider<T>({
   required String name,
   required QueryFunctionWithRef<T> queryFn,
   QueryOptions<T> options = const QueryOptions(),
-}) => StateNotifierProvider<QueryNotifier<T>, QueryState<T>>(
-    (ref) => QueryNotifier<T>(
+}) => StateNotifierProvider<QueryStateNotifier<T>, QueryState<T>>(
+    (ref) => QueryStateNotifier<T>(
       queryFunction: (){
         return queryFn(ref);
       },
@@ -315,12 +334,16 @@ StateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProvider<T>({
   );
 
 /// Auto-dispose provider for creating queries
-AutoDisposeStateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProviderAutoDispose<T>({
+/// 
+/// **⚠️ DEPRECATED:** StateNotifier is deprecated by Riverpod. 
+/// Use `asyncQueryProviderAutoDispose` instead for new code.
+@Deprecated('Use asyncQueryProviderAutoDispose instead. StateNotifier is deprecated by Riverpod.')
+AutoDisposeStateNotifierProvider<QueryStateNotifier<T>, QueryState<T>> queryStateProviderAutoDispose<T>({
   required String name,
   required QueryFunctionWithRef<T> queryFn,
   QueryOptions<T> options = const QueryOptions(),
-}) => StateNotifierProvider.autoDispose<QueryNotifier<T>, QueryState<T>>(
-    (ref) => QueryNotifier<T>(
+}) => StateNotifierProvider.autoDispose<QueryStateNotifier<T>, QueryState<T>>(
+    (ref) => QueryStateNotifier<T>(
       queryFunction: (){
         return queryFn(ref);
       },
@@ -332,12 +355,16 @@ AutoDisposeStateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProviderA
 
 
 /// Provider family for creating queries with parameters
-StateNotifierProviderFamily<QueryNotifier<T>, QueryState<T>, P> queryProviderFamily<T, P>({
+/// 
+/// **⚠️ DEPRECATED:** StateNotifier is deprecated by Riverpod. 
+/// Use `asyncQueryProviderFamily` instead for new code.
+@Deprecated('Use asyncQueryProviderFamily instead. StateNotifier is deprecated by Riverpod.')
+StateNotifierProviderFamily<QueryStateNotifier<T>, QueryState<T>, P> queryStateProviderFamily<T, P>({
   required String name,
   required QueryFunctionWithParamsWithRef<T, P> queryFn,
   QueryOptions<T> options = const QueryOptions(),
-}) => StateNotifierProvider.family<QueryNotifier<T>, QueryState<T>, P>(
-    (ref, param) => QueryNotifier<T>(
+}) => StateNotifierProvider.family<QueryStateNotifier<T>, QueryState<T>, P>(
+    (ref, param) => QueryStateNotifier<T>(
       queryFunction: () { 
         return queryFn(ref, param);
       },
@@ -348,12 +375,16 @@ StateNotifierProviderFamily<QueryNotifier<T>, QueryState<T>, P> queryProviderFam
   );
 
 /// Auto-dispose provider family for creating queries with parameters
-AutoDisposeStateNotifierProviderFamily<QueryNotifier<T>, QueryState<T>, P> queryProviderFamilyAutoDispose<T, P>({
+/// 
+/// **⚠️ DEPRECATED:** StateNotifier is deprecated by Riverpod. 
+/// Use `asyncQueryProviderFamilyAutoDispose` instead for new code.
+@Deprecated('Use asyncQueryProviderFamilyAutoDispose instead. StateNotifier is deprecated by Riverpod.')
+AutoDisposeStateNotifierProviderFamily<QueryStateNotifier<T>, QueryState<T>, P> queryStateProviderFamilyAutoDispose<T, P>({
   required String name,
   required QueryFunctionWithParamsWithRef<T, P> queryFn,
   QueryOptions<T> options = const QueryOptions(),
-}) => StateNotifierProvider.autoDispose.family<QueryNotifier<T>, QueryState<T>, P>(
-    (ref, param) => QueryNotifier<T>(
+}) => StateNotifierProvider.autoDispose.family<QueryStateNotifier<T>, QueryState<T>, P>(
+    (ref, param) => QueryStateNotifier<T>(
       queryFunction: () { 
         return queryFn(ref, param);
       },
@@ -365,13 +396,13 @@ AutoDisposeStateNotifierProviderFamily<QueryNotifier<T>, QueryState<T>, P> query
 
 
 /// Convenience function for creating parameterized queries with constant parameters
-StateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProviderWithParams<T, P>({
+StateNotifierProvider<QueryStateNotifier<T>, QueryState<T>> queryStateProviderWithParams<T, P>({
   required String name,
   required P params, // Should be const for best practices
   required QueryFunctionWithParamsWithRef<T, P> queryFn,
   QueryOptions<T> options = const QueryOptions(),
-}) => StateNotifierProvider<QueryNotifier<T>, QueryState<T>>(
-    (ref) => QueryNotifier<T>(
+}) => StateNotifierProvider<QueryStateNotifier<T>, QueryState<T>>(
+    (ref) => QueryStateNotifier<T>(
       queryFunction: () {
         return queryFn(ref, params);
       },
@@ -381,29 +412,4 @@ StateNotifierProvider<QueryNotifier<T>, QueryState<T>> queryProviderWithParams<T
     name: '$name-$params',
   );
 
-/// Extension methods for easier query usage
-extension QueryStateExtensions<T> on QueryState<T> {
-  /// Execute a callback when the query has data
-  R? when<R>({
-    R Function()? idle,
-    R Function()? loading,
-    R Function(T data)? success,
-    R Function(Object error, StackTrace? stackTrace)? error,
-    R Function(T data)? refetching,
-  }) => switch (this) {
-      QueryIdle<T>() => idle?.call(),
-      QueryLoading<T>() => loading?.call(),
-      final QuerySuccess<T> successState => success?.call(successState.data),
-      final QueryError<T> errorState => error?.call(errorState.error, errorState.stackTrace),
-      final QueryRefetching<T> refetchingState => refetching?.call(refetchingState.previousData),
-    };
 
-  /// Map the data if the query is successful
-  QueryState<R> map<R>(R Function(T data) mapper) => switch (this) {
-      final QuerySuccess<T> success => QuerySuccess(mapper(success.data), fetchedAt: success.fetchedAt),
-      final QueryRefetching<T> refetching => QueryRefetching(mapper(refetching.previousData), fetchedAt: refetching.fetchedAt),
-      QueryIdle<T>() => QueryIdle<R>(),
-      QueryLoading<T>() => QueryLoading<R>(),
-      final QueryError<T> error => QueryError<R>(error.error, stackTrace: error.stackTrace),
-    };
-}

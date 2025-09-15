@@ -76,6 +76,7 @@ class QueryOptions<T> {
     bool? keepPreviousData,
     void Function(T data)? onSuccess,
     void Function(Object error, StackTrace? stackTrace)? onError,
+    void Function(String queryKey)? onCacheEvicted,
   }) {
     return QueryOptions<T>(
       staleTime: staleTime ?? this.staleTime,
@@ -91,6 +92,7 @@ class QueryOptions<T> {
       keepPreviousData: keepPreviousData ?? this.keepPreviousData,
       onSuccess: onSuccess ?? this.onSuccess,
       onError: onError ?? this.onError,
+      onCacheEvicted: onCacheEvicted ?? this.onCacheEvicted,
     );
   }
 
@@ -108,7 +110,8 @@ class QueryOptions<T> {
           other.retry == retry &&
           other.retryDelay == retryDelay &&
           other.enabled == enabled &&
-          other.keepPreviousData == keepPreviousData);
+          other.keepPreviousData == keepPreviousData &&
+          other.onCacheEvicted == onCacheEvicted);
 
   @override
   int get hashCode => Object.hash(
@@ -123,6 +126,7 @@ class QueryOptions<T> {
         retryDelay,
         enabled,
         keepPreviousData,
+        onCacheEvicted,
       );
 
   @override
@@ -135,7 +139,8 @@ class QueryOptions<T> {
       'retry: $retry, '
       'retryDelay: $retryDelay, '
       'enabled: $enabled, '
-      'keepPreviousData: $keepPreviousData)';
+      'keepPreviousData: $keepPreviousData, '
+      'onCacheEvicted: $onCacheEvicted)';
 }
 
 /// Configuration for infinite queries
@@ -157,6 +162,7 @@ class InfiniteQueryOptions<T, TPageParam> extends QueryOptions<T> {
     super.keepPreviousData,
     super.onSuccess,
     super.onError,
+    super.onCacheEvicted,
   });
 
   /// Function to get the next page parameter
@@ -184,6 +190,7 @@ class InfiniteQueryOptions<T, TPageParam> extends QueryOptions<T> {
     TPageParam? Function(T lastPage, List<T> allPages)? getNextPageParam,
     TPageParam? Function(T firstPage, List<T> allPages)?
         getPreviousPageParam,
+    void Function(String queryKey)? onCacheEvicted,
   }) {
     return InfiniteQueryOptions<T, TPageParam>(
       staleTime: staleTime ?? this.staleTime,
@@ -201,6 +208,7 @@ class InfiniteQueryOptions<T, TPageParam> extends QueryOptions<T> {
       onError: onError ?? this.onError,
       getNextPageParam: getNextPageParam ?? this.getNextPageParam,
       getPreviousPageParam: getPreviousPageParam ?? this.getPreviousPageParam,
+      onCacheEvicted: onCacheEvicted ?? this.onCacheEvicted,
     );
   }
 }

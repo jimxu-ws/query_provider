@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../query_provider.dart' show QueryFunctionWithParamsWithRef, QueryFunctionWithParams;
 import 'app_lifecycle_manager.dart';
 import 'query_cache.dart';
 import 'query_client.dart';
 import 'query_options.dart';
+import 'state_query_provider.dart' show QueryFunctionWithParamsWithRef, QueryFunctionWithParams;
 import 'window_focus_manager.dart';
 
 /// Represents cached infinite query data
@@ -920,6 +920,29 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
 }
 
 /// Provider for creating infinite queries
+/// 
+/// **⚠️ DEPRECATED:** StateNotifier is deprecated by Riverpod. 
+/// Use `asyncInfiniteQueryProvider` instead for new code.
+/// 
+/// Migration:
+/// ```dart
+/// // Old (deprecated)
+/// final postsProvider = infiniteQueryProvider<Post, int>(
+///   name: 'posts',
+///   queryFn: (ref, pageParam) => fetchPosts(page: pageParam),
+///   initialPageParam: 1,
+///   options: InfiniteQueryOptions(...),
+/// );
+/// 
+/// // New (recommended)
+/// final postsProvider = asyncInfiniteQueryProvider<Post, int>(
+///   name: 'posts',
+///   queryFn: (ref, pageParam) => fetchPosts(page: pageParam),
+///   initialPageParam: 1,
+///   options: InfiniteQueryOptions(...),
+/// );
+/// ```
+@Deprecated('Use asyncInfiniteQueryProvider instead. StateNotifier is deprecated by Riverpod.')
 StateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>> infiniteQueryProvider<T, TPageParam>({
   required String name,
   required QueryFunctionWithParamsWithRef<T, TPageParam> queryFn,
@@ -936,6 +959,9 @@ StateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T
   );
 
 /// Auto-dispose provider for creating infinite queries
+/// 
+/// **⚠️ DEPRECATED:** StateNotifier is deprecated by Riverpod. 
+/// Use `asyncInfiniteQueryProviderAutoDispose` instead for new code.
 /// 
 /// **Use this when:**
 /// - Temporary infinite data that should be cleaned up when not watched
@@ -981,6 +1007,7 @@ StateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T
 ///   error: (error, stackTrace) => ErrorWidget(error),
 /// );
 /// ```
+@Deprecated('Use asyncInfiniteQueryProviderAutoDispose instead. StateNotifier is deprecated by Riverpod.')
 AutoDisposeStateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>> infiniteQueryProviderAutoDispose<T, TPageParam>({
   required String name,
   required QueryFunctionWithParamsWithRef<T, TPageParam> queryFn,

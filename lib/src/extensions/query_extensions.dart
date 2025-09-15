@@ -3,13 +3,41 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../infinite_query_provider.dart';
 import '../mutation_provider.dart';
-import '../query_provider.dart';
+import '../modern_query_provider.dart';
 import '../query_state.dart';
+
+
+/// Extension methods for easier query usage
+extension QueryStateExtensions<T> on QueryState<T> {
+  /// Execute a callback when the query has data
+  R? when<R>({
+    R Function()? idle,
+    R Function()? loading,
+    R Function(T data)? success,
+    R Function(Object error, StackTrace? stackTrace)? error,
+    R Function(T data)? refetching,
+  }) => switch (this) {
+      QueryIdle<T>() => idle?.call(),
+      QueryLoading<T>() => loading?.call(),
+      final QuerySuccess<T> successState => success?.call(successState.data),
+      final QueryError<T> errorState => error?.call(errorState.error, errorState.stackTrace),
+      final QueryRefetching<T> refetchingState => refetching?.call(refetchingState.previousData),
+    };
+
+  /// Map the data if the query is successful
+  QueryState<R> map<R>(R Function(T data) mapper) => switch (this) {
+      final QuerySuccess<T> success => QuerySuccess(mapper(success.data), fetchedAt: success.fetchedAt),
+      final QueryRefetching<T> refetching => QueryRefetching(mapper(refetching.previousData), fetchedAt: refetching.fetchedAt),
+      QueryIdle<T>() => QueryIdle<R>(),
+      QueryLoading<T>() => QueryLoading<R>(),
+      final QueryError<T> error => QueryError<R>(error.error, stackTrace: error.stackTrace),
+    };
+}
 
 /// Extension methods for WidgetRef to make query usage more convenient
 extension QueryWidgetRefExtension on WidgetRef {
   /// Watch a query and return its state
-  QueryState<T> watchQuery<T>(StateNotifierProvider<QueryNotifier<T>, QueryState<T>> provider) => watch(provider);
+  QueryState<T> watchQuery<T>(NotifierProvider<QueryNotifier<T>, QueryState<T>> provider) => watch(provider);
 
   /// Watch a mutation and return its state
   MutationState<T> watchMutation<T, V>(StateNotifierProvider<MutationNotifier<T, V>, MutationState<T>> provider) => watch(provider);
@@ -18,7 +46,7 @@ extension QueryWidgetRefExtension on WidgetRef {
   InfiniteQueryState<T> watchInfiniteQuery<T, P>(StateNotifierProvider<InfiniteQueryNotifier<T, P>, InfiniteQueryState<T>> provider) => watch(provider);
 
   /// Read a query notifier for manual operations
-  QueryNotifier<T> readQueryNotifier<T>(StateNotifierProvider<QueryNotifier<T>, QueryState<T>> provider) => read(provider.notifier);
+  QueryNotifier<T> readQueryNotifier<T>(NotifierProvider<QueryNotifier<T>, QueryState<T>> provider) => read(provider.notifier);
 
   /// Read a mutation notifier for manual operations
   MutationNotifier<T, V> readMutationNotifier<T, V>(StateNotifierProvider<MutationNotifier<T, V>, MutationState<T>> provider) => read(provider.notifier);
@@ -40,7 +68,7 @@ extension QueryWidgetRefExtension on WidgetRef {
 extension QueryConsumerExtension on Consumer {
   /// Create a consumer that watches a query
   static Widget query<T>({
-    required StateNotifierProvider<QueryNotifier<T>, QueryState<T>> provider, required Widget Function(BuildContext context, QueryState<T> state, Widget? child) builder, Key? key,
+    required NotifierProvider<QueryNotifier<T>, QueryState<T>> provider, required Widget Function(BuildContext context, QueryState<T> state, Widget? child) builder, Key? key,
     Widget? child,
   }) => Consumer(
       key: key,
@@ -92,7 +120,7 @@ extension QueryBuildContextExtension on BuildContext {
 /// Mixin for widgets that use queries
 mixin QueryMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   /// Convenience method to watch a query
-  QueryState<R> watchQuery<R>(StateNotifierProvider<QueryNotifier<R>, QueryState<R>> provider) => ref.watch(provider);
+  QueryState<R> watchQuery<R>(NotifierProvider<QueryNotifier<R>, QueryState<R>> provider) => ref.watch(provider);
 
   /// Convenience method to watch a mutation
   MutationState<R> watchMutation<R, V>(StateNotifierProvider<MutationNotifier<R, V>, MutationState<R>> provider) => ref.watch(provider);
@@ -101,7 +129,7 @@ mixin QueryMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   InfiniteQueryState<R> watchInfiniteQuery<R, P>(StateNotifierProvider<InfiniteQueryNotifier<R, P>, InfiniteQueryState<R>> provider) => ref.watch(provider);
 
   /// Convenience method to read a query notifier
-  QueryNotifier<R> readQueryNotifier<R>(StateNotifierProvider<QueryNotifier<R>, QueryState<R>> provider) => ref.read(provider.notifier);
+  QueryNotifier<R> readQueryNotifier<R>(NotifierProvider<QueryNotifier<R>, QueryState<R>> provider) => ref.read(provider.notifier);
 
   /// Convenience method to read a mutation notifier
   MutationNotifier<R, V> readMutationNotifier<R, V>(StateNotifierProvider<MutationNotifier<R, V>, MutationState<R>> provider) => ref.read(provider.notifier);

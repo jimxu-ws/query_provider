@@ -5,7 +5,8 @@ import '../mutation_provider.dart';
 import '../query_cache.dart';
 import '../query_client.dart';
 import '../query_options.dart';
-import '../query_provider.dart';
+import '../state_query_provider.dart';
+import '../modern_query_provider.dart';
 import '../query_state.dart';
 
 /// Utility functions for easier integration with @riverpod
@@ -20,7 +21,7 @@ class QueryUtils {
   ///   options: QueryOptions(staleTime: Duration(minutes: 5)),
   /// );
   /// ```
-  static StateNotifierProvider<QueryNotifier<T>, QueryState<T>> query<T>({
+  static NotifierProvider<QueryNotifier<T>, QueryState<T>> query<T>({
     required String name,
     required QueryFunctionWithRef<T> queryFn,
     QueryOptions<T>? options,

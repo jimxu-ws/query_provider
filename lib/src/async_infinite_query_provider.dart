@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../query_provider.dart' show QueryFunctionWithParamsWithRef;
+import 'state_query_provider.dart' show QueryFunctionWithParamsWithRef;
 import 'app_lifecycle_manager.dart';
 import 'query_cache.dart';
 import 'query_client.dart';
