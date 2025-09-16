@@ -1142,7 +1142,10 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P>
     }
   }
 
-  Future<void> refetch() async {
+  Future<void> refetch({bool background = false}) async {
+    if (background) {
+      return _backgroundRefetch(arg);
+    }
     _safeState(const AsyncValue.loading());
     try {
       final data = await _performFetch(arg);

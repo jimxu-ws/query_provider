@@ -9,10 +9,16 @@ final usersQueryProvider = queryProvider<List<User>>(
   name: 'users',
   queryFn: (ref) => ApiService.fetchUsers(),
   options: const QueryOptions<List<User>>(
-    staleTime: Duration(minutes: 5),
-    cacheTime: Duration(minutes: 10),
-    refetchOnMount: true,
+    staleTime: Duration(seconds: 4),
+    cacheTime: Duration(seconds: 10),
+    refetchOnWindowFocus: true,
+    refetchOnAppFocus: true,
     keepPreviousData: true,
+    pauseRefetchInBackground: true,
+    refetchInterval: Duration(seconds: 70),
+    retry: 3,
+    retryDelay: Duration(seconds: 10),
+    enabled: true,
   ),
 );
 
@@ -20,8 +26,16 @@ final usersAsyncQueryProvider = asyncQueryProvider<List<User>>(
   name: 'users-async',
   queryFn: (ref) => ApiService.fetchUsers(),
   options: const QueryOptions<List<User>>(
-    staleTime: Duration(minutes: 5),
-    cacheTime: Duration(minutes: 10),
+    staleTime: Duration(seconds: 40),
+    cacheTime: Duration(seconds: 60),
+    refetchOnWindowFocus: true,
+    refetchOnAppFocus: true,
+    pauseRefetchInBackground: true,
+    keepPreviousData: true,
+    refetchInterval: Duration(seconds: 170),
+    retry: 3,
+    retryDelay: Duration(seconds: 20),
+    enabled: true,
   ),
 );
 
@@ -30,9 +44,16 @@ final userAsyncQueryProviderFamily = asyncQueryProviderFamily<User, int>(
   name: 'user-async',
   queryFn: (ref, userId) => ApiService.fetchUser(userId),
   options: const QueryOptions<User>(
-    staleTime: Duration(minutes: 3),
-    cacheTime: Duration(minutes: 15),
+    staleTime: Duration(seconds: 40),
+    cacheTime: Duration(seconds: 60),
     refetchOnWindowFocus: true,
+    refetchOnAppFocus: true,
+    keepPreviousData: true,
+    pauseRefetchInBackground: true,
+    refetchInterval: Duration(seconds: 70),
+    retry: 3,
+    retryDelay: Duration(seconds: 20),
+    enabled: true,
   ),
 );
 

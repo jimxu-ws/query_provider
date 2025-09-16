@@ -85,7 +85,10 @@ class UserDetailAsyncScreen extends ConsumerWidget {
                   await notifier.refetch();
                 },
               ),
-              data: (user) => AsyncUserInfoCard(user: user),
+              data: (user){
+                print('user: $user');
+                return AsyncUserInfoCard(user: user);
+              },
             ),
           ),
           const Divider(height: 32),
