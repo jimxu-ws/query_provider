@@ -450,7 +450,7 @@ void main() {
     });
 
     test('should create different instances for different parameters', () async {
-      final provider = queryProviderFamily<String, String>(
+      final provider = queryProviderWithParam<String, String>(
         name: 'user-query',
         queryFn: (ref, param) => MockApiService.fetchDataWithParam(param),
         options: const QueryOptions(refetchOnMount: true),
@@ -474,7 +474,7 @@ void main() {
     });
 
     test('should reuse same instance for same parameter', () async {
-      final provider = queryProviderFamily<String, String>(
+      final provider = queryProviderWithParam<String, String>(
         name: 'user-query',
         queryFn: (ref, param) => MockApiService.fetchDataWithParam(param),
         options: const QueryOptions(refetchOnMount: true),
@@ -491,7 +491,7 @@ void main() {
     });
 
     test('should handle different parameter types', () async {
-      final provider = queryProviderFamily<String, int>(
+      final provider = queryProviderWithParam<String, int>(
         name: 'id-query',
         queryFn: (ref, id) => MockApiService.fetchDataWithParam(id.toString()),
         options: const QueryOptions(refetchOnMount: true),
@@ -530,20 +530,19 @@ void main() {
     test('should create provider with fixed parameters', () async {
       const params = 'fixed-param';
       
-      final provider = queryProviderWithParams<String, String>(
+      final provider = queryProviderWithParam<String, String>(
         name: 'fixed-query',
-        params: params,
         queryFn: (ref, param) => MockApiService.fetchDataWithParam(param),
         options: const QueryOptions(refetchOnMount: true),
       );
       
       // Listen to trigger the provider
-      container.listen(provider, (previous, next) {});
+      container.listen(provider(params), (previous, next) {});
       
       // Wait for fetch
       await Future.delayed(const Duration(milliseconds: 150));
       
-      final state = container.read(provider);
+      final state = container.read(provider(params));
       expect(state, isA<QuerySuccess<String>>());
       expect((state as QuerySuccess<String>).data, contains('fixed-param'));
       expect(MockApiService.callCount, 1);
@@ -552,15 +551,14 @@ void main() {
     test('should include parameters in query key', () async {
       const params = 'test-param';
       
-      final provider = queryProviderWithParams<String, String>(
+      final provider = queryProviderWithParam<String, String>(
         name: 'param-query',
-        params: params,
         queryFn: (ref, param) => MockApiService.fetchDataWithParam(param),
         options: const QueryOptions(refetchOnMount: true),
       );
       
       // Listen to trigger the provider
-      container.listen(provider, (previous, next) {});
+      container.listen(provider(params), (previous, next) {});
       
       // Wait for fetch
       await Future.delayed(const Duration(milliseconds: 150));

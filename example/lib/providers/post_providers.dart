@@ -151,7 +151,7 @@ final createPostMutationProvider = createProvider<Post, Map<String, dynamic>>(
 );
 
 /// Mutation provider family for updating a post
-final updatePostMutationProvider = updateProviderWithParams<Post, Map<String, dynamic>, int>(
+final updatePostMutationProvider = updateProvider<Post, Map<String, dynamic>, int>(
   name: 'update-post',
   mutationFn: (ref, variables, postId) => ApiService.updatePost(postId, variables),
   onMutate: (ref, variables, postId) async {
@@ -271,7 +271,7 @@ final updatePostMutationProvider = updateProviderWithParams<Post, Map<String, dy
 );
 
 /// Mutation provider family for deleting a post
-final deletePostMutationProvider = deleteProviderWithParams<void, int>(
+final deletePostMutationProvider = deleteProviderWithParam<void, int>(
   name: 'delete-post',
   mutationFn: (ref, postId) => ApiService.deletePost(postId),
   onMutate: (ref, postId) async {

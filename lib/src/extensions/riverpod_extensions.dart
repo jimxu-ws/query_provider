@@ -1,13 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../modern_query_provider.dart';
 import '../mutation_options.dart';
-import '../mutation_provider.dart';
+import '../modern_mutation_provider.dart';
 import '../query_cache.dart';
 import '../query_client.dart';
 import '../query_options.dart';
-import '../state_query_provider.dart';
-import '../modern_query_provider.dart';
 import '../query_state.dart';
+import '../state_query_provider.dart';
 
 /// Utility functions for easier integration with @riverpod
 class QueryUtils {
@@ -43,20 +43,20 @@ class QueryUtils {
   ///   ),
   /// );
   /// ```
-  static StateNotifierProvider<MutationNotifier<T, TVariables>, MutationState<T>> createMutationWithOptions<T, TVariables>({
+  static NotifierProvider<MutationNotifier<T, TVariables>, MutationState<T>> createMutationWithOptions<T, TVariables>({
     required String name,
     required CreateMutationFunctionWithRef<T, TVariables> mutationFn,
     MutationOptions<T, TVariables>? options,
   }) => createProvider<T, TVariables>(
       name: name,
       mutationFn: mutationFn,
-      onSuccess: (ref, data, variables) => options?.onSuccess?.call(data, variables),
-      onError: (ref, variables, error, stackTrace) => options?.onError?.call(variables, error, stackTrace),
-      onMutate: (ref, variables) => options?.onMutate?.call(variables)??Future<void>.value(),
+      onSuccess: (ref, data, variables) => options?.onSuccess?.call(ref, data, variables),
+      onError: (ref, variables, error, stackTrace) => options?.onError?.call(ref, variables, error, stackTrace),
+      onMutate: (ref, variables) => options?.onMutate?.call(ref, variables)??Future<void>.value(),
     );
 
   /// Create a mutation provider from a simple function
-  static StateNotifierProvider<MutationNotifier<T, TVariables>, MutationState<T>> createMutation<T, TVariables>({
+  static NotifierProvider<MutationNotifier<T, TVariables>, MutationState<T>> createMutation<T, TVariables>({
     required String name,
     required CreateMutationFunctionWithRef<T, TVariables> mutationFn,
     int? retry = 0,

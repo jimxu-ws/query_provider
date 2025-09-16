@@ -118,7 +118,7 @@ NotifierProvider<QueryNotifier<User>, QueryState<User>> userQueryProvider(int us
 }
 
 /// Query provider family for fetching users by ID (recommended approach)
-final userQueryProviderFamily = queryProviderFamily<User, int>(
+final userQueryProviderFamily = queryProviderWithParam<User, int>(
   name: 'user',
   queryFn: (ref, userId) => ApiService.fetchUser(userId),
   options: const QueryOptions<User>(
@@ -128,7 +128,7 @@ final userQueryProviderFamily = queryProviderFamily<User, int>(
 );
 
 /// Query provider family for searching users by name
-final userSearchProviderFamily = queryProviderFamily<List<User>, String>(
+final userSearchProviderFamily = queryProviderWithParam<List<User>, String>(
   name: 'userSearch',
   queryFn: (ref, searchTerm) => ApiService.searchUsers(searchTerm),
   options: const QueryOptions<List<User>>(
@@ -187,7 +187,7 @@ final createUserMutationProvider = createProvider<User, Map<String, dynamic>>(
   );
 
 /// Mutation provider for updating a user
-final updateUserMutationProvider = updateProviderWithParams<User, Map<String, dynamic>, int>(
+final updateUserMutationProvider = updateProvider<User, Map<String, dynamic>, int>(
   name: 'update-user',
   mutationFn: (ref, variables, userId) => ApiService.updateUser(userId, variables),
   onMutate: (ref, variables, userId) async {
@@ -242,7 +242,7 @@ final updateUserMutationProvider = updateProviderWithParams<User, Map<String, dy
 );
 
 /// Mutation provider for deleting a user
-final deleteUserMutationProvider = deleteProviderWithParams<void, int>(
+final deleteUserMutationProvider = deleteProviderWithParam<void, int>(
   name: 'delete-user',
   mutationFn: (ref, id) => ApiService.deleteUser(id),
   onSuccess: (ref, _, id) async {
@@ -278,7 +278,7 @@ final deleteUserMutationProvider = deleteProviderWithParams<void, int>(
 
 
 /// Mutation provider for deleting a user
-final deleteUserMutationProvider2 = deleteProviderWithParams<void, int>(
+final deleteUserMutationProvider2 = deleteProviderWithParam<void, int>(
   name: 'delete-user-2',
   mutationFn: (ref, id) => ApiService.deleteUser(id),
   onMutate: (ref,id) async {

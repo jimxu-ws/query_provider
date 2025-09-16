@@ -1,11 +1,27 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meta/meta.dart';
 
 /// Callback called on successful mutation
-typedef OnSuccessFunction<TData, TVariables> = void Function(TData data, TVariables variables);
+typedef OnSuccessFunctionWithRef<TData, TVariables> = void Function(Ref ref, TData data, TVariables variables);
 /// Callback called on mutation error
-typedef OnErrorFunction<TData, TVariables> = void Function(TVariables variables, Object error, StackTrace? stackTrace);
+typedef OnErrorFunctionWithRef<TData, TVariables> = void Function(Ref ref, TVariables variables, Object error, StackTrace? stackTrace);
 /// Callback called before mutation starts (useful for optimistic updates)
-typedef OnMutateFunction<TData, TVariables> = Future<void> Function(TVariables variables);
+typedef OnMutateFunctionWithRef<TData, TVariables> = Future<void> Function(Ref ref, TVariables variables);
+
+/// A function that performs a mutation
+typedef MutationFunctionWithRef<TData, TVariables> = Future<TData> Function(Ref ref, TVariables variables);
+/// A function that performs a create mutation with a reference
+typedef CreateMutationFunctionWithRef<TData, TVariables> = Future<TData> Function(Ref ref, TVariables variables);
+/// A function that performs a update mutation with a reference
+typedef UpdateMutationFunctionWithRef<TData, TVariables, TParam> = Future<TData> Function(Ref ref, TVariables variables, TParam param);
+/// A function that performs a delete mutation with a reference
+typedef DeleteMutationFunctionWithRef<TData, TParam> = Future<TData> Function(Ref ref, TParam param);
+/// Callback called on successful mutation
+typedef OnUpdateSuccessFunctionWithRef<TData, TVariables, TParam> = void Function(Ref ref, TData data, TVariables variables, TParam param);
+/// Callback called on mutation error
+typedef OnUpdateErrorFunctionWithRef<TData, TVariables, TParam> = void Function(Ref ref, TVariables variables, TParam param, Object error, StackTrace? stackTrace);
+/// Callback called before mutation starts (useful for optimistic updates)
+typedef OnUpdateMutateFunctionWithRef<TData, TVariables, TParam> = Future<void> Function(Ref ref, TVariables variables, TParam param);
 
 /// Configuration options for a mutation
 @immutable
@@ -25,20 +41,20 @@ class MutationOptions<TData, TVariables> {
   final Duration retryDelay;
 
   /// Callback called on successful mutation
-  final OnSuccessFunction<TData, TVariables>? onSuccess;
+  final OnSuccessFunctionWithRef<TData, TVariables>? onSuccess;
 
   /// Callback called on mutation error
-  final OnErrorFunction<TData, TVariables>? onError;
+  final OnErrorFunctionWithRef<TData, TVariables>? onError;
 
   /// Callback called before mutation starts (useful for optimistic updates)
-  final OnMutateFunction<TData, TVariables>? onMutate;
+  final OnMutateFunctionWithRef<TData, TVariables>? onMutate;
 
   MutationOptions<TData, TVariables> copyWith({
     int? retry,
     Duration? retryDelay,
-    OnSuccessFunction<TData, TVariables>? onSuccess,
-    OnErrorFunction<TData, TVariables>? onError,
-    OnMutateFunction<TData, TVariables>? onMutate,
+    OnSuccessFunctionWithRef<TData, TVariables>? onSuccess,
+    OnErrorFunctionWithRef<TData, TVariables>? onError,
+    OnMutateFunctionWithRef<TData, TVariables>? onMutate,
   }) => MutationOptions<TData, TVariables>(
       retry: retry ?? this.retry,
       retryDelay: retryDelay ?? this.retryDelay,

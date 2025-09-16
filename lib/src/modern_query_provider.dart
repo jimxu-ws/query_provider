@@ -947,7 +947,7 @@ AutoDisposeNotifierProvider<QueryNotifierAutoDispose<T>, QueryState<T>> queryPro
 /// // Usage:
 /// final userState = ref.watch(userDetailProvider(userId));
 /// ```
-NotifierProviderFamily<QueryNotifierFamily<T, P>, QueryState<T>, P> queryProviderFamily<T, P>({
+NotifierProviderFamily<QueryNotifierFamily<T, P>, QueryState<T>, P> queryProviderWithParam<T, P>({
   required String name,
   required QueryFunctionWithParamsWithRef<T, P> queryFn,
   QueryOptions<T> options = const QueryOptions(),
@@ -973,7 +973,7 @@ NotifierProviderFamily<QueryNotifierFamily<T, P>, QueryState<T>, P> queryProvide
 ///   ),
 /// );
 /// ```
-AutoDisposeNotifierProviderFamily<QueryNotifierFamilyAutoDispose<T, P>, QueryState<T>, P> queryProviderFamilyAutoDispose<T, P>({
+AutoDisposeNotifierProviderFamily<QueryNotifierFamilyAutoDispose<T, P>, QueryState<T>, P> queryProviderWithParamAutoDispose<T, P>({
   required String name,
   required QueryFunctionWithParamsWithRef<T, P> queryFn,
   QueryOptions<T> options = const QueryOptions(),

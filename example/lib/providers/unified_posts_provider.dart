@@ -53,38 +53,41 @@ class PostsState {
   }
 }
 
+// Create the infinite query provider
+final _postsInfiniteQueryProvider = infiniteQueryProvider<PostPage, int>(
+  name: 'posts-infinite',
+  queryFn: (ref, pageParam) => ApiService.fetchPosts(page: pageParam),
+  initialPageParam: 1,
+  options: InfiniteQueryOptions<PostPage, int>(
+    getNextPageParam: (lastPage, allPages) {
+      return lastPage.hasMore ? lastPage.page + 1 : null;
+    },
+    staleTime: const Duration(minutes: 2),
+    cacheTime: const Duration(minutes: 10),
+  ),
+);
+
 /// Unified provider that manages all post operations
-class UnifiedPostsNotifier extends StateNotifier<PostsState> {
-  UnifiedPostsNotifier() : super(const PostsState(
-    infiniteQueryState: InfiniteQueryIdle<PostPage>(),
-    createMutationState: MutationIdle<Post>(),
-    updateMutationState: MutationIdle<Post>(),
-    deleteMutationState: MutationIdle<void>(),
-  )) {
+class UnifiedPostsNotifier extends Notifier<PostsState> {
+  UnifiedPostsNotifier() : super() {
     _initializeInfiniteQuery();
   }
 
-  
-  // Internal infinite query notifier
-  late final InfiniteQueryNotifier<PostPage, int> _infiniteQueryNotifier;
+  @override
+  PostsState build() {
+    _initializeInfiniteQuery();
+    return const PostsState(
+      infiniteQueryState: InfiniteQueryIdle<PostPage>(),
+      createMutationState: MutationIdle<Post>(),
+      updateMutationState: MutationIdle<Post>(),
+      deleteMutationState: MutationIdle<void>(),
+    );
+  }
 
   void _initializeInfiniteQuery() {
-    _infiniteQueryNotifier = InfiniteQueryNotifier<PostPage, int>(
-      queryKey: 'posts-infinite',
-      queryFn: (pageParam) => ApiService.fetchPosts(page: pageParam),
-      initialPageParam: 1,
-      options: InfiniteQueryOptions<PostPage, int>(
-        getNextPageParam: (lastPage, allPages) {
-          return lastPage.hasMore ? lastPage.page + 1 : null;
-        },
-        staleTime: const Duration(minutes: 2),
-        cacheTime: const Duration(minutes: 10),
-      ),
-    );
-
     // Listen to infinite query state changes
-    _infiniteQueryNotifier.addListener((queryState) {
-      state = state.copyWith(infiniteQueryState: queryState);
+    ref.listen(_postsInfiniteQueryProvider, (previous, next) {
+      state = state.copyWith(infiniteQueryState: next);
     });
   }
 
@@ -93,18 +96,18 @@ class UnifiedPostsNotifier extends StateNotifier<PostsState> {
     // The infinite query notifier automatically fetches on initialization
     // if refetchOnMount is true (which is the default)
     if (state.infiniteQueryState is InfiniteQueryIdle) {
-      await _infiniteQueryNotifier.refetch();
+      await ref.read(_postsInfiniteQueryProvider.notifier).refetch();
     }
   }
 
   /// Fetch next page
   Future<void> fetchNextPage() async {
-    await _infiniteQueryNotifier.fetchNextPage();
+    await ref.read(_postsInfiniteQueryProvider.notifier).fetchNextPage();
   }
 
   /// Refetch all posts
   Future<void> refetch() async {
-    await _infiniteQueryNotifier.refetch();
+    await ref.read(_postsInfiniteQueryProvider.notifier).refetch();
   }
 
   /// Fetch user posts
@@ -243,15 +246,15 @@ class UnifiedPostsNotifier extends StateNotifier<PostsState> {
 
   /// Reset mutation states
   void resetCreateMutation() {
-    state = state.copyWith(createMutationState: MutationIdle<Post>());
+    state = state.copyWith(createMutationState: const MutationIdle<Post>());
   }
 
   void resetUpdateMutation() {
-    state = state.copyWith(updateMutationState: MutationIdle<Post>());
+    state = state.copyWith(updateMutationState: const MutationIdle<Post>());
   }
 
   void resetDeleteMutation() {
-    state = state.copyWith(deleteMutationState: MutationIdle<void>());
+    state = state.copyWith(deleteMutationState: const MutationIdle<void>());
   }
 
   // Helper methods for optimistic updates
@@ -484,15 +487,10 @@ class UnifiedPostsNotifier extends StateNotifier<PostsState> {
     state = state.copyWith(userPostsCache: updatedUserCache);
   }
 
-  @override
-  void dispose() {
-    _infiniteQueryNotifier.dispose();
-    super.dispose();
-  }
 }
 
 /// The unified posts provider
-final unifiedPostsProvider = StateNotifierProvider<UnifiedPostsNotifier, PostsState>((ref) {
+final unifiedPostsProvider = NotifierProvider<UnifiedPostsNotifier, PostsState>(() {
   return UnifiedPostsNotifier();
 });
 

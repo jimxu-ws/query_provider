@@ -7,7 +7,7 @@ import 'app_lifecycle_manager.dart';
 import 'query_cache.dart';
 import 'query_client.dart';
 import 'query_options.dart';
-import 'state_query_provider.dart' show QueryFunctionWithParamsWithRef, QueryFunctionWithParams;
+import 'state_query_provider.dart' show QueryFunctionWithParamsWithRef;
 import 'window_focus_manager.dart';
 
 /// Represents cached infinite query data
@@ -302,19 +302,48 @@ final class InfiniteQueryFetchingPreviousPage<T> extends InfiniteQueryState<T> {
   String toString() => 'InfiniteQueryFetchingPreviousPage<$T>(pages: ${pages.length})';
 }
 
-/// Notifier for managing infinite query state
-class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQueryState<T>>
+/// Modern FamilyNotifier for managing infinite query state
+class InfiniteQueryNotifier<T, TPageParam> extends Notifier<InfiniteQueryState<T>>
     with QueryClientMixin {
   InfiniteQueryNotifier({
     required this.queryFn,
     required this.options,
     required this.initialPageParam,
     required this.queryKey,
-  }) : super(const InfiniteQueryIdle()) {
+  });
+
+  @override
+  InfiniteQueryState<T> build() {
     _initialize();
+    _setupDispose();
+    return const InfiniteQueryIdle();
   }
 
-  final QueryFunctionWithParams<T, TPageParam> queryFn;
+  void _setupDispose() {
+    ref.onDispose(() {
+      _refetchTimer?.cancel();
+      
+      // Clean up cache listener
+      _cache.removeAllListeners(queryKey);
+      
+      // Clean up lifecycle callbacks
+      if (options.refetchOnAppFocus) {
+        _lifecycleManager.removeOnResumeCallback(_onAppResume);
+      }
+      if (options.pauseRefetchInBackground) {
+        _lifecycleManager.removeOnPauseCallback(_onAppPause);
+      }
+      
+      // Clean up window focus callbacks
+      if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
+        _windowFocusManager.removeOnFocusCallback(_onWindowFocus);
+      }
+      
+      debugPrint('InfiniteQueryNotifier disposed for key $queryKey');
+    });
+  }
+
+  final QueryFunctionWithParamsWithRef<T, TPageParam> queryFn;
   final InfiniteQueryOptions<T, TPageParam> options;
   final TPageParam initialPageParam;
   final String queryKey;
@@ -351,10 +380,10 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
     }
   }
 
-  void _safeState(InfiniteQueryState<T> state) {
-    if(mounted){
-      this.state = state;
-    }
+  void _safeState(InfiniteQueryState<T> newState) {
+    // In modern Notifier, we don't need to check if it's mounted
+    // The framework handles this automatically
+    state = newState;
   }
 
   /// Fetch the first page
@@ -399,7 +428,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
     _safeState(const InfiniteQueryLoading());
 
     try {
-      final firstPage = await queryFn(initialPageParam);
+      final firstPage = await queryFn(ref, initialPageParam);
       final now = DateTime.now();
       final pages = [firstPage];
 
@@ -480,7 +509,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
   /// Core fetch logic that can be reused
   Future<(List<T>, bool, bool, DateTime)?> _fetchFirstPageCore() async {
     try {
-      final firstPage = await queryFn(initialPageParam);
+      final firstPage = await queryFn(ref, initialPageParam);
       final now = DateTime.now();
       final pages = [firstPage];
 
@@ -537,7 +566,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
     ));
 
     try {
-      final nextPage = await queryFn(nextPageParam);
+      final nextPage = await queryFn(ref, nextPageParam);
       final newPages = [...currentState.pages, nextPage];
       final now = DateTime.now();
 
@@ -603,7 +632,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
     ));
 
     try {
-      final previousPage = await queryFn(previousPageParam);
+      final previousPage = await queryFn(ref, previousPageParam);
       final newPages = [previousPage, ...currentState.pages];
       final now = DateTime.now();
 
@@ -665,7 +694,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
 
         // Fetch the same number of pages as currently loaded
         for (int i = 0; i < currentState.pages.length; i++) {
-          final page = await queryFn(pageParam);
+          final page = await queryFn(ref, pageParam);
           newPages.add(page);
 
           if (i < currentState.pages.length - 1) {
@@ -868,7 +897,7 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
   void _setupCacheListener() {
     _cache.addListener<InfiniteQueryCacheData<T>>(queryKey, (entry) {
       debugPrint('Cache listener called for key $queryKey in infinite query notifier');
-      if ((entry?.hasData??false) && mounted && !(state.hasData && listEquals(entry!.data!.pages, state.pages))) {
+      if ((entry?.hasData??false) && !(state.hasData && listEquals(entry!.data!.pages, state.pages))) {
         debugPrint('Cache data changed for key $queryKey in infinite query notifier');
         // Update state when cache data changes externally (e.g., optimistic updates)
         final cacheData = entry!.data!;
@@ -883,21 +912,54 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
         // Cache entry was removed, reset to idle
         if(options.onCacheEvicted != null){
           options.onCacheEvicted?.call(queryKey);
-        }else if(mounted){
-          refetch();
         }else{
-          _safeState(const InfiniteQueryIdle());
+          refetch();
         }
       }
     });
   }
 
+}
+
+/// Modern infinite query provider using Notifier.
+NotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>> infiniteQueryProvider<T, TPageParam>({
+  required String name,
+  required QueryFunctionWithParamsWithRef<T, TPageParam> queryFn,
+  required TPageParam initialPageParam,
+  required InfiniteQueryOptions<T, TPageParam> options
+}) => NotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>>(
+    () => InfiniteQueryNotifier<T, TPageParam>(
+      queryFn: (ref,param) => queryFn(ref, param),
+      options: options,
+      initialPageParam: initialPageParam,
+      queryKey: name,
+    ),
+    name: name,
+  );
+
+/// Auto-dispose Notifier for managing infinite query state
+class InfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeNotifier<InfiniteQueryState<T>>
+    with QueryClientMixin {
+  InfiniteQueryNotifierAutoDispose({
+    required this.queryFn,
+    required this.options,
+    required this.initialPageParam,
+    required this.queryKey,
+  });
+
   @override
-  void dispose() {
+  InfiniteQueryState<T> build() {
+    _initialize();
+    _setupDispose();
+    return const InfiniteQueryIdle();
+  }
+
+  void _setupDispose() {
+    ref.onDispose(() {
     _refetchTimer?.cancel();
     
     // Clean up cache listener
-    getGlobalQueryCache().removeAllListeners(queryKey);
+      _cache.removeAllListeners(queryKey);
     
     // Clean up lifecycle callbacks
     if (options.refetchOnAppFocus) {
@@ -912,56 +974,585 @@ class InfiniteQueryNotifier<T, TPageParam> extends StateNotifier<InfiniteQuerySt
       _windowFocusManager.removeOnFocusCallback(_onWindowFocus);
     }
     
-    // Reset initialization flag
-    _isInitialized = false;
+      debugPrint('InfiniteQueryNotifierAutoDispose disposed for key $queryKey');
+    });
+  }
+
+  final QueryFunctionWithParamsWithRef<T, TPageParam> queryFn;
+  final InfiniteQueryOptions<T, TPageParam> options;
+  final TPageParam initialPageParam;
+  final String queryKey;
+
+  Timer? _refetchTimer;
+  int _retryCount = 0;
+  bool _isInitialized = false;
+  
+  // Initialize cache, lifecycle manager, and window focus manager
+  final QueryCache _cache = getGlobalQueryCache();
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
+  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  bool _isRefetchPaused = false;
+
+  void _initialize() {
+    if (!_isInitialized) {
+      _isInitialized = true;
+      // Set up cache change listener for automatic UI updates
+      _setupCacheListener();
+      
+      // Set up lifecycle and window focus callbacks
+      _setupLifecycleCallbacks();
+      _setupWindowFocusCallbacks();
+    }
     
-    super.dispose();
+    if (options.enabled && options.refetchOnMount) {
+      _fetchFirstPage();
+    }
+
+    // Set up automatic refetching if configured
+    if (options.enabled && options.refetchInterval != null) {
+      _scheduleRefetch();
+    }
+  }
+
+  void _safeState(InfiniteQueryState<T> newState) {
+    // In modern Notifier, we don't need to check if it's mounted
+    // The framework handles this automatically
+    state = newState;
+  }
+
+  /// Fetch the first page
+  Future<void> _fetchFirstPage() async {
+    if (!options.enabled) {
+      return;
+    }
+
+    debugPrint('Fetching first page for infinite query key $queryKey');
+
+    // Check cache first
+    final cachedEntry = _getCachedEntry();
+    if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
+      debugPrint('Using cached data for infinite query key $queryKey');
+      final cacheData = cachedEntry.data!;
+      _safeState(InfiniteQuerySuccess<T>(
+        pages: cacheData.pages,
+        hasNextPage: cacheData.hasNextPage,
+        hasPreviousPage: cacheData.hasPreviousPage,
+        fetchedAt: cacheData.fetchedAt,
+      ));
+      return;
+    }
+
+    // If keepPreviousData is enabled and we have stale cached data, use it while fetching fresh data
+    if (options.keepPreviousData && cachedEntry != null && cachedEntry.hasData) {
+      debugPrint('Using stale cached data with keepPreviousData for infinite query key $queryKey');
+      final staleData = cachedEntry.data!;
+      _safeState(InfiniteQuerySuccess<T>(
+        pages: staleData.pages,
+        hasNextPage: staleData.hasNextPage,
+        hasPreviousPage: staleData.hasPreviousPage,
+        fetchedAt: staleData.fetchedAt,
+      ));
+      
+      // Start fetching fresh data in the background
+      _fetchFirstPageInBackground();
+      return;
+    }
+
+    // Show loading state if no cached data or keepPreviousData is disabled
+    _safeState(const InfiniteQueryLoading());
+
+    try {
+      final firstPage = await queryFn(ref, initialPageParam);
+      final now = DateTime.now();
+      final pages = [firstPage];
+
+      final hasNextPage = options.getNextPageParam(firstPage, pages) != null;
+      final hasPreviousPage = options.getPreviousPageParam?.call(firstPage, pages) != null;
+
+      final cacheData = InfiniteQueryCacheData<T>(
+        pages: pages,
+        hasNextPage: hasNextPage,
+        hasPreviousPage: hasPreviousPage,
+        fetchedAt: now,
+      );
+
+      // Cache the result
+      _setCachedEntry(QueryCacheEntry<InfiniteQueryCacheData<T>>(
+        data: cacheData,
+        fetchedAt: now,
+        options: QueryOptions<InfiniteQueryCacheData<T>>(
+          staleTime: options.staleTime,
+          cacheTime: options.cacheTime,
+          enabled: options.enabled,
+        ),
+      ));
+
+      _safeState(InfiniteQuerySuccess<T>(
+        pages: pages,
+        hasNextPage: hasNextPage,
+        hasPreviousPage: hasPreviousPage,
+        fetchedAt: now,
+      ));
+
+      _retryCount = 0;
+      options.onSuccess?.call(firstPage);
+    } catch (error, stackTrace) {
+      if (_retryCount < options.retry) {
+        _retryCount++;
+        await Future<void>.delayed(options.retryDelay);
+        return _fetchFirstPage();
+      }
+
+      // Cache the error
+      _cache.setError<InfiniteQueryCacheData<T>>(
+        queryKey,
+        error,
+        stackTrace: stackTrace,
+        options: QueryOptions<InfiniteQueryCacheData<T>>(
+          staleTime: options.staleTime,
+          cacheTime: options.cacheTime,
+          enabled: options.enabled,
+        ),
+      );
+
+      _safeState(InfiniteQueryError(error, stackTrace: stackTrace));
+      _retryCount = 0;
+      options.onError?.call(error, stackTrace);
+    }
+  }
+
+  /// Fetch the first page in background (for keepPreviousData)
+  void _fetchFirstPageInBackground() {
+    _fetchFirstPageCore().then((result) {
+      if (result != null) {
+        final (pages, hasNextPage, hasPreviousPage, fetchedAt) = result;
+        _safeState(InfiniteQuerySuccess<T>(
+          pages: pages,
+          hasNextPage: hasNextPage,
+          hasPreviousPage: hasPreviousPage,
+          fetchedAt: fetchedAt,
+        ));
+      }
+    }).catchError((Object error, StackTrace stackTrace) {
+      // On error, keep the current stale data but log the error
+      debugPrint('Background fetch failed for infinite query key $queryKey: $error');
+      // Don't update state on error to keep showing stale data
+    });
+  }
+
+  /// Core fetch logic that can be reused
+  Future<(List<T>, bool, bool, DateTime)?> _fetchFirstPageCore() async {
+    try {
+      final firstPage = await queryFn(ref, initialPageParam);
+      final now = DateTime.now();
+      final pages = [firstPage];
+
+      final hasNextPage = options.getNextPageParam(firstPage, pages) != null;
+      final hasPreviousPage = options.getPreviousPageParam?.call(firstPage, pages) != null;
+
+      final cacheData = InfiniteQueryCacheData<T>(
+        pages: pages,
+        hasNextPage: hasNextPage,
+        hasPreviousPage: hasPreviousPage,
+        fetchedAt: now,
+      );
+
+      // Cache the result
+      _setCachedEntry(QueryCacheEntry<InfiniteQueryCacheData<T>>(
+        data: cacheData,
+        fetchedAt: now,
+        options: QueryOptions<InfiniteQueryCacheData<T>>(
+          staleTime: options.staleTime,
+          cacheTime: options.cacheTime,
+          enabled: options.enabled,
+        ),
+      ));
+
+      _retryCount = 0;
+      options.onSuccess?.call(firstPage);
+
+      return (pages, hasNextPage, hasPreviousPage, now);
+    } catch (error, stackTrace) {
+      if (_retryCount < options.retry) {
+        _retryCount++;
+        await Future<void>.delayed(options.retryDelay);
+        return _fetchFirstPageCore();
+      }
+
+      // Cache the error
+      _cache.setError<InfiniteQueryCacheData<T>>(
+        queryKey,
+        error,
+        stackTrace: stackTrace,
+        options: QueryOptions<InfiniteQueryCacheData<T>>(
+          staleTime: options.staleTime,
+          cacheTime: options.cacheTime,
+          enabled: options.enabled,
+        ),
+      );
+
+      _retryCount = 0;
+      options.onError?.call(error, stackTrace);
+      return null;
+    }
+  }
+
+  /// Fetch the next page
+  Future<void> fetchNextPage() async {
+    final currentState = state;
+    if (currentState is! InfiniteQuerySuccess<T> || !currentState.hasNextPage) {
+      return;
+    }
+
+    final nextPageParam = options.getNextPageParam(currentState.pages.last, currentState.pages);
+    if (nextPageParam == null) {
+      return;
+    }
+
+    debugPrint('Fetching next page for infinite query key $queryKey');
+
+    // Show fetching next page state
+    _safeState(InfiniteQueryFetchingNextPage<T>(
+      pages: currentState.pages,
+      hasNextPage: currentState.hasNextPage,
+      hasPreviousPage: currentState.hasPreviousPage,
+      fetchedAt: currentState.fetchedAt,
+    ));
+
+    try {
+      final nextPage = await queryFn(ref, nextPageParam);
+      final newPages = [...currentState.pages, nextPage];
+      final now = DateTime.now();
+
+      final hasNextPage = options.getNextPageParam(nextPage, newPages) != null;
+      final hasPreviousPage = options.getPreviousPageParam?.call(newPages.first, newPages) != null;
+
+      final cacheData = InfiniteQueryCacheData<T>(
+        pages: newPages,
+        hasNextPage: hasNextPage,
+        hasPreviousPage: hasPreviousPage,
+        fetchedAt: now,
+      );
+
+      // Cache the result
+      _setCachedEntry(QueryCacheEntry<InfiniteQueryCacheData<T>>(
+        data: cacheData,
+        fetchedAt: now,
+        options: QueryOptions<InfiniteQueryCacheData<T>>(
+          staleTime: options.staleTime,
+          cacheTime: options.cacheTime,
+          enabled: options.enabled,
+        ),
+      ));
+
+      _safeState(InfiniteQuerySuccess<T>(
+        pages: newPages,
+        hasNextPage: hasNextPage,
+        hasPreviousPage: hasPreviousPage,
+        fetchedAt: now,
+      ));
+
+      options.onSuccess?.call(nextPage);
+    } catch (error, stackTrace) {
+      _safeState(InfiniteQueryError(error, stackTrace: stackTrace));
+      options.onError?.call(error, stackTrace);
+    }
+  }
+
+  /// Fetch the previous page
+  Future<void> fetchPreviousPage() async {
+    final currentState = state;
+    if (currentState is! InfiniteQuerySuccess<T> || 
+        !currentState.hasPreviousPage ||
+        options.getPreviousPageParam == null) {
+      return;
+    }
+
+    final previousPageParam = options.getPreviousPageParam!(currentState.pages.first, currentState.pages);
+    if (previousPageParam == null) {
+      return;
+    }
+
+    debugPrint('Fetching previous page for infinite query key $queryKey');
+
+    // Show fetching previous page state
+    _safeState(InfiniteQueryFetchingPreviousPage<T>(
+      pages: currentState.pages,
+      hasNextPage: currentState.hasNextPage,
+      hasPreviousPage: currentState.hasPreviousPage,
+      fetchedAt: currentState.fetchedAt,
+    ));
+
+    try {
+      final previousPage = await queryFn(ref, previousPageParam);
+      final newPages = [previousPage, ...currentState.pages];
+      final now = DateTime.now();
+
+      final hasNextPage = options.getNextPageParam(newPages.last, newPages) != null;
+      final hasPreviousPage = options.getPreviousPageParam!(newPages.first, newPages) != null;
+
+      final cacheData = InfiniteQueryCacheData<T>(
+        pages: newPages,
+        hasNextPage: hasNextPage,
+        hasPreviousPage: hasPreviousPage,
+        fetchedAt: now,
+      );
+
+      // Cache the result
+      _setCachedEntry(QueryCacheEntry<InfiniteQueryCacheData<T>>(
+        data: cacheData,
+        fetchedAt: now,
+        options: QueryOptions<InfiniteQueryCacheData<T>>(
+          staleTime: options.staleTime,
+          cacheTime: options.cacheTime,
+          enabled: options.enabled,
+        ),
+      ));
+
+      _safeState(InfiniteQuerySuccess<T>(
+        pages: newPages,
+        hasNextPage: hasNextPage,
+        hasPreviousPage: hasPreviousPage,
+        fetchedAt: now,
+      ));
+
+      options.onSuccess?.call(previousPage);
+    } catch (error, stackTrace) {
+      _safeState(InfiniteQueryError(error, stackTrace: stackTrace));
+      options.onError?.call(error, stackTrace);
+    }
+  }
+
+  /// Refetch all pages
+  Future<void> refetch() async {
+    final currentState = state;
+    if (currentState is InfiniteQuerySuccess<T>) {
+      // Show refetching state with previous data
+      _safeState(InfiniteQueryRefetching<T>(
+        pages: currentState.pages,
+        hasNextPage: currentState.hasNextPage,
+        hasPreviousPage: currentState.hasPreviousPage,
+        fetchedAt: currentState.fetchedAt,
+      ));
+    } else {
+      _safeState(const InfiniteQueryLoading());
+    }
+
+    try {
+      // Refetch all pages sequentially
+      final List<T> newPages = [];
+      TPageParam pageParam = initialPageParam;
+
+      // Fetch the same number of pages as currently loaded
+      final pagesToLoad = currentState is InfiniteQuerySuccess<T> ? currentState.pages.length : 1;
+      for (int i = 0; i < pagesToLoad; i++) {
+        final page = await queryFn(ref, pageParam);
+        newPages.add(page);
+
+        if (i < pagesToLoad - 1) {
+          final nextParam = options.getNextPageParam(page, newPages);
+          if (nextParam == null) {
+            break; // No more pages available
+          }
+          pageParam = nextParam;
+        }
+      }
+
+      final now = DateTime.now();
+      final hasNextPage = options.getNextPageParam(newPages.last, newPages) != null;
+      final hasPreviousPage = options.getPreviousPageParam?.call(newPages.first, newPages) != null;
+
+      final cacheData = InfiniteQueryCacheData<T>(
+        pages: newPages,
+        hasNextPage: hasNextPage,
+        hasPreviousPage: hasPreviousPage,
+        fetchedAt: now,
+      );
+
+      // Cache the result
+      _setCachedEntry(QueryCacheEntry<InfiniteQueryCacheData<T>>(
+        data: cacheData,
+        fetchedAt: now,
+        options: QueryOptions<InfiniteQueryCacheData<T>>(
+          staleTime: options.staleTime,
+          cacheTime: options.cacheTime,
+          enabled: options.enabled,
+        ),
+      ));
+
+      _safeState(InfiniteQuerySuccess<T>(
+        pages: newPages,
+        hasNextPage: hasNextPage,
+        hasPreviousPage: hasPreviousPage,
+        fetchedAt: now,
+      ));
+
+      _retryCount = 0;
+    } catch (error, stackTrace) {
+      _safeState(InfiniteQueryError(error, stackTrace: stackTrace));
+      _retryCount = 0;
+      options.onError?.call(error, stackTrace);
+    }
+  }
+
+  /// Invalidate and refetch
+  Future<void> refresh() {
+    _clearCache();
+    return refetch();
+  }
+
+  void _scheduleRefetch() {
+    _refetchTimer?.cancel();
+    if (options.refetchInterval != null) {
+      _refetchTimer = Timer.periodic(options.refetchInterval!, (_) {
+        if (options.enabled && _shouldRefetch()) {
+          refetch();
+        }
+      });
+    }
+  }
+
+  /// Check if refetch should proceed based on app state
+  bool _shouldRefetch() {
+    // If refetching is explicitly paused, don't refetch
+    if (_isRefetchPaused) {
+      return false;
+    }
+
+    // If pausing in background is enabled and app is in background, don't refetch
+    if (options.pauseRefetchInBackground && _lifecycleManager.isInBackground) {
+      return false;
+    }
+
+    return true;
+  }
+
+  void _setupLifecycleCallbacks() {
+    // Refetch when app comes to foreground (if enabled and data is stale)
+    if (options.refetchOnAppFocus) {
+      _lifecycleManager.addOnResumeCallback(_onAppResume);
+    }
+
+    // Pause refetching when app goes to background (if enabled)
+    if (options.pauseRefetchInBackground) {
+      _lifecycleManager.addOnPauseCallback(_onAppPause);
+    }
+  }
+
+  void _onAppResume() {
+    debugPrint('App resumed in infinite query notifier');
+    // Resume refetching and check if we need to refetch stale data
+    _isRefetchPaused = false;
+    
+    if (_shouldRefetchOnFocus()) {
+      refetch();
+    }
+  }
+
+  void _onAppPause() {
+    debugPrint('App paused in infinite query notifier');
+    // Mark refetching as paused
+    _isRefetchPaused = true;
+  }
+
+  /// Set up window focus callbacks
+  void _setupWindowFocusCallbacks() {
+    // Refetch when window gains focus (if enabled and data is stale)
+    if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
+      _windowFocusManager.addOnFocusCallback(_onWindowFocus);
+    }
+  }
+
+  void _onWindowFocus() {
+    debugPrint('Window focused in infinite query notifier');
+    // Refetch stale data when window gains focus
+    if (_shouldRefetchOnFocus()) {
+      refetch();
+    }
+  }
+
+  /// Check if we should refetch when focus is gained
+  bool _shouldRefetchOnFocus() {
+    if (!options.enabled) {
+      return false;
+    }
+
+    final cachedEntry = _getCachedEntry();
+    if (cachedEntry == null) {
+      return true; // No cached data, should refetch
+    }
+
+    // Check if data is stale based on staleTime
+    return cachedEntry.isStale;
+  }
+
+  QueryCacheEntry<InfiniteQueryCacheData<T>>? _getCachedEntry() => _cache.get<InfiniteQueryCacheData<T>>(queryKey);
+
+  void _setCachedEntry(QueryCacheEntry<InfiniteQueryCacheData<T>> entry) {
+    _cache.set(queryKey, entry);
+  }
+
+  void _clearCache() {
+    _cache.remove(queryKey);
+  }
+
+  /// Manually set data for optimistic updates
+  void setData(List<T> pages, {bool? hasNextPage, bool? hasPreviousPage}) {
+    final now = DateTime.now();
+    final cacheData = InfiniteQueryCacheData<T>(
+      pages: pages,
+      hasNextPage: hasNextPage ?? false,
+      hasPreviousPage: hasPreviousPage ?? false,
+      fetchedAt: now,
+    );
+
+    // Cache the result
+    _setCachedEntry(QueryCacheEntry<InfiniteQueryCacheData<T>>(
+      data: cacheData,
+      fetchedAt: now,
+      options: QueryOptions<InfiniteQueryCacheData<T>>(
+        staleTime: options.staleTime,
+        cacheTime: options.cacheTime,
+        enabled: options.enabled,
+      ),
+    ));
+
+    _safeState(InfiniteQuerySuccess<T>(
+      pages: pages,
+      hasNextPage: hasNextPage ?? false,
+      hasPreviousPage: hasPreviousPage ?? false,
+      fetchedAt: now,
+    ));
+  }
+
+  /// Set up cache change listener for automatic UI updates
+  void _setupCacheListener() {
+    _cache.addListener<InfiniteQueryCacheData<T>>(queryKey, (entry) {
+      debugPrint('Cache listener called for key $queryKey in infinite query notifier');
+      if ((entry?.hasData??false) && !(state.hasData && listEquals(entry!.data!.pages, state.pages))) {
+        debugPrint('Cache data changed for key $queryKey in infinite query notifier');
+        // Update state when cache data changes externally (e.g., optimistic updates)
+        final cacheData = entry!.data!;
+        _safeState(InfiniteQuerySuccess(
+          pages: cacheData.pages,
+          hasNextPage: cacheData.hasNextPage,
+          hasPreviousPage: cacheData.hasPreviousPage,
+          fetchedAt: cacheData.fetchedAt,
+        ));
+      } else if (entry == null) {
+        debugPrint('Cache entry removed for key $queryKey in infinite query notifier');
+        // Cache entry was removed, reset to idle
+        if(options.onCacheEvicted != null){
+          options.onCacheEvicted?.call(queryKey);
+        }else{
+          refetch();
+        }
+      }
+    });
   }
 }
 
-/// Provider for creating infinite queries
-/// 
-/// **⚠️ DEPRECATED:** StateNotifier is deprecated by Riverpod. 
-/// Use `asyncInfiniteQueryProvider` instead for new code.
-/// 
-/// Migration:
-/// ```dart
-/// // Old (deprecated)
-/// final postsProvider = infiniteQueryProvider<Post, int>(
-///   name: 'posts',
-///   queryFn: (ref, pageParam) => fetchPosts(page: pageParam),
-///   initialPageParam: 1,
-///   options: InfiniteQueryOptions(...),
-/// );
-/// 
-/// // New (recommended)
-/// final postsProvider = asyncInfiniteQueryProvider<Post, int>(
-///   name: 'posts',
-///   queryFn: (ref, pageParam) => fetchPosts(page: pageParam),
-///   initialPageParam: 1,
-///   options: InfiniteQueryOptions(...),
-/// );
-/// ```
-@Deprecated('Use asyncInfiniteQueryProvider instead. StateNotifier is deprecated by Riverpod.')
-StateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>> infiniteQueryProvider<T, TPageParam>({
-  required String name,
-  required QueryFunctionWithParamsWithRef<T, TPageParam> queryFn,
-  required TPageParam initialPageParam,
-  required InfiniteQueryOptions<T, TPageParam> options,
-}) => StateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>>(
-    (ref) => InfiniteQueryNotifier<T, TPageParam>(
-      queryFn: (param) => queryFn(ref, param),
-      options: options,
-      initialPageParam: initialPageParam,
-      queryKey: name,
-    ),
-    name: name,
-  );
-
-/// Auto-dispose provider for creating infinite queries
-/// 
-/// **⚠️ DEPRECATED:** StateNotifier is deprecated by Riverpod. 
-/// Use `asyncInfiniteQueryProviderAutoDispose` instead for new code.
+/// Modern auto-dispose infinite query provider using Notifier
 /// 
 /// **Use this when:**
 /// - Temporary infinite data that should be cleaned up when not watched
@@ -984,7 +1575,7 @@ StateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T
 /// ```dart
 /// final tempPostsProvider = infiniteQueryProviderAutoDispose<Post, int>(
 ///   name: 'temp-posts',
-///   queryFn: (pageParam) => ApiService.fetchPosts(page: pageParam),
+///   queryFn: (ref, pageParam) => ApiService.fetchPosts(page: pageParam),
 ///   initialPageParam: 1,
 ///   options: InfiniteQueryOptions(
 ///     getNextPageParam: (lastPage, allPages) => 
@@ -1007,15 +1598,14 @@ StateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T
 ///   error: (error, stackTrace) => ErrorWidget(error),
 /// );
 /// ```
-@Deprecated('Use asyncInfiniteQueryProviderAutoDispose instead. StateNotifier is deprecated by Riverpod.')
-AutoDisposeStateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>> infiniteQueryProviderAutoDispose<T, TPageParam>({
+AutoDisposeNotifierProvider<InfiniteQueryNotifierAutoDispose<T, TPageParam>, InfiniteQueryState<T>> infiniteQueryProviderAutoDispose<T, TPageParam>({
   required String name,
   required QueryFunctionWithParamsWithRef<T, TPageParam> queryFn,
   required TPageParam initialPageParam,
   required InfiniteQueryOptions<T, TPageParam> options,
-}) => StateNotifierProvider.autoDispose<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>>(
-    (ref) => InfiniteQueryNotifier<T, TPageParam>(
-      queryFn: (param) => queryFn(ref, param),
+}) => NotifierProvider.autoDispose<InfiniteQueryNotifierAutoDispose<T, TPageParam>, InfiniteQueryState<T>>(
+    () => InfiniteQueryNotifierAutoDispose<T, TPageParam>(
+      queryFn: (ref, param) => queryFn(ref, param),
       options: options,
       initialPageParam: initialPageParam,
       queryKey: name,
@@ -1094,8 +1684,21 @@ class InfiniteQueryResult<T> {
 
 /// Extension to create an infinite query result from a provider
 extension WidgetRefReadQueryResult on WidgetRef {
-  /// Create an infinite query result that can be used in widgets
-  InfiniteQueryResult<T> readInfiniteQueryResult<T, TPageParam>(StateNotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>> provider) {
+  /// Create an infinite query result that can be used in widgets (modern version)
+  InfiniteQueryResult<T> readInfiniteQueryResult<T, TPageParam>(NotifierProvider<InfiniteQueryNotifier<T, TPageParam>, InfiniteQueryState<T>> provider) {
+    final notifier = read(provider.notifier);
+    final state = watch(provider);
+
+    return InfiniteQueryResult<T>(
+      state: state,
+      fetchNextPage: notifier.fetchNextPage,
+      fetchPreviousPage: notifier.fetchPreviousPage,
+      refetch: notifier.refetch,
+    );
+  }
+
+  /// Create an infinite query result from an auto-dispose provider
+  InfiniteQueryResult<T> readInfiniteQueryResultAutoDispose<T, TPageParam>(AutoDisposeNotifierProvider<InfiniteQueryNotifierAutoDispose<T, TPageParam>, InfiniteQueryState<T>> provider) {
     final notifier = read(provider.notifier);
     final state = watch(provider);
 

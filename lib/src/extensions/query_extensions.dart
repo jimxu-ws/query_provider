@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../infinite_query_provider.dart';
-import '../mutation_provider.dart';
+import '../modern_mutation_provider.dart';
 import '../modern_query_provider.dart';
 import '../query_state.dart';
 
@@ -40,19 +40,19 @@ extension QueryWidgetRefExtension on WidgetRef {
   QueryState<T> watchQuery<T>(NotifierProvider<QueryNotifier<T>, QueryState<T>> provider) => watch(provider);
 
   /// Watch a mutation and return its state
-  MutationState<T> watchMutation<T, V>(StateNotifierProvider<MutationNotifier<T, V>, MutationState<T>> provider) => watch(provider);
+  MutationState<T> watchMutation<T, V>(NotifierProvider<MutationNotifier<T, V>, MutationState<T>> provider) => watch(provider);
 
   /// Watch an infinite query and return its state
-  InfiniteQueryState<T> watchInfiniteQuery<T, P>(StateNotifierProvider<InfiniteQueryNotifier<T, P>, InfiniteQueryState<T>> provider) => watch(provider);
+  InfiniteQueryState<T> watchInfiniteQuery<T, P>(NotifierProvider<InfiniteQueryNotifier<T, P>, InfiniteQueryState<T>> provider) => watch(provider);
 
   /// Read a query notifier for manual operations
   QueryNotifier<T> readQueryNotifier<T>(NotifierProvider<QueryNotifier<T>, QueryState<T>> provider) => read(provider.notifier);
 
   /// Read a mutation notifier for manual operations
-  MutationNotifier<T, V> readMutationNotifier<T, V>(StateNotifierProvider<MutationNotifier<T, V>, MutationState<T>> provider) => read(provider.notifier);
+  MutationNotifier<T, V> readMutationNotifier<T, V>(NotifierProvider<MutationNotifier<T, V>, MutationState<T>> provider) => read(provider.notifier);
 
   /// Read an infinite query notifier for manual operations
-  InfiniteQueryNotifier<T, P> readInfiniteQueryNotifier<T, P>(StateNotifierProvider<InfiniteQueryNotifier<T, P>, InfiniteQueryState<T>> provider) => read(provider.notifier);
+  InfiniteQueryNotifier<T, P> readInfiniteQueryNotifier<T, P>(NotifierProvider<InfiniteQueryNotifier<T, P>, InfiniteQueryState<T>> provider) => read(provider.notifier);
   
   /// Read a notifier for manual operations with safe handling of disposal
   Future<Tr> safeRead<Tn, Tr>(Refreshable<Tn> notifier, Future<Tr> Function(Tn) call) async {
@@ -81,7 +81,7 @@ extension QueryConsumerExtension on Consumer {
 
   /// Create a consumer that watches a mutation
   static Widget mutation<T, V>({
-    required StateNotifierProvider<MutationNotifier<T, V>, MutationState<T>> provider, required Widget Function(BuildContext context, MutationState<T> state, Widget? child) builder, Key? key,
+    required NotifierProvider<MutationNotifier<T, V>, MutationState<T>> provider, required Widget Function(BuildContext context, MutationState<T> state, Widget? child) builder, Key? key,
     Widget? child,
   }) => Consumer(
       key: key,
@@ -94,7 +94,7 @@ extension QueryConsumerExtension on Consumer {
 
   /// Create a consumer that watches an infinite query
   static Widget infiniteQuery<T, P>({
-    required StateNotifierProvider<InfiniteQueryNotifier<T, P>, InfiniteQueryState<T>> provider, required Widget Function(BuildContext context, InfiniteQueryState<T> state, Widget? child) builder, Key? key,
+    required NotifierProvider<InfiniteQueryNotifier<T, P>, InfiniteQueryState<T>> provider, required Widget Function(BuildContext context, InfiniteQueryState<T> state, Widget? child) builder, Key? key,
     Widget? child,
   }) => Consumer(
       key: key,
@@ -123,17 +123,17 @@ mixin QueryMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   QueryState<R> watchQuery<R>(NotifierProvider<QueryNotifier<R>, QueryState<R>> provider) => ref.watch(provider);
 
   /// Convenience method to watch a mutation
-  MutationState<R> watchMutation<R, V>(StateNotifierProvider<MutationNotifier<R, V>, MutationState<R>> provider) => ref.watch(provider);
+  MutationState<R> watchMutation<R, V>(NotifierProvider<MutationNotifier<R, V>, MutationState<R>> provider) => ref.watch(provider);
 
   /// Convenience method to watch an infinite query
-  InfiniteQueryState<R> watchInfiniteQuery<R, P>(StateNotifierProvider<InfiniteQueryNotifier<R, P>, InfiniteQueryState<R>> provider) => ref.watch(provider);
+  InfiniteQueryState<R> watchInfiniteQuery<R, P>(NotifierProvider<InfiniteQueryNotifier<R, P>, InfiniteQueryState<R>> provider) => ref.watch(provider);
 
   /// Convenience method to read a query notifier
   QueryNotifier<R> readQueryNotifier<R>(NotifierProvider<QueryNotifier<R>, QueryState<R>> provider) => ref.read(provider.notifier);
 
   /// Convenience method to read a mutation notifier
-  MutationNotifier<R, V> readMutationNotifier<R, V>(StateNotifierProvider<MutationNotifier<R, V>, MutationState<R>> provider) => ref.read(provider.notifier);
+  MutationNotifier<R, V> readMutationNotifier<R, V>(NotifierProvider<MutationNotifier<R, V>, MutationState<R>> provider) => ref.read(provider.notifier);
 
   /// Convenience method to read an infinite query notifier
-  InfiniteQueryNotifier<R, P> readInfiniteQueryNotifier<R, P>(StateNotifierProvider<InfiniteQueryNotifier<R, P>, InfiniteQueryState<R>> provider) => ref.read(provider.notifier);
+  InfiniteQueryNotifier<R, P> readInfiniteQueryNotifier<R, P>(NotifierProvider<InfiniteQueryNotifier<R, P>, InfiniteQueryState<R>> provider) => ref.read(provider.notifier);
 }
