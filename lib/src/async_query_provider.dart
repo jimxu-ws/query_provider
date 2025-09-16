@@ -788,7 +788,10 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
     }
   }
 
-  Future<void> refetch() async {
+  Future<void> refetch({bool background = false}) async {
+    if (background) {
+      return _backgroundRefetch();
+    }
     _safeState(const AsyncValue.loading());
     try {
       final data = await _performFetch();
