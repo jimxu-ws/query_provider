@@ -45,20 +45,20 @@ class QueryUtils {
   /// ```
   static NotifierProvider<MutationNotifier<T, TVariables>, MutationState<T>> createMutationWithOptions<T, TVariables>({
     required String name,
-    required CreateMutationFunctionWithRef<T, TVariables> mutationFn,
-    MutationOptions<T, TVariables>? options,
+    required MutationFunctionWithRef<T, TVariables> mutationFn,
+    MutationOptions<T, TVariables, TVariables>? options,
   }) => createProvider<T, TVariables>(
       name: name,
       mutationFn: mutationFn,
-      onSuccess: (ref, data, variables) => options?.onSuccess?.call(ref, data, variables),
-      onError: (ref, variables, error, stackTrace) => options?.onError?.call(ref, variables, error, stackTrace),
-      onMutate: (ref, variables) => options?.onMutate?.call(ref, variables)??Future<void>.value(),
+      onSuccess: (ref, data, variables) => options?.onSuccess?.call(ref, data, variables, variables),
+      onError: (ref, variables, error, stackTrace) => options?.onError?.call(ref, variables, variables, error, stackTrace),
+      onMutate: (ref, variables) => options?.onMutate?.call(ref, variables, variables)??Future<void>.value(),
     );
 
   /// Create a mutation provider from a simple function
   static NotifierProvider<MutationNotifier<T, TVariables>, MutationState<T>> createMutation<T, TVariables>({
     required String name,
-    required CreateMutationFunctionWithRef<T, TVariables> mutationFn,
+    required MutationFunctionWithRef<T, TVariables> mutationFn,
     int? retry = 0,
     Duration? retryDelay = const Duration(seconds: 1),
     OnSuccessFunctionWithRef<T, TVariables>? onSuccess,

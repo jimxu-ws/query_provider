@@ -7,62 +7,6 @@ import 'mutation_options.dart';
 import 'query_client.dart';
 import 'query_state.dart';
 
-@immutable
-class UpdateMutationOptions<TData, TVariables, TParam> {
-  const UpdateMutationOptions({
-    this.retry = 0,
-    this.retryDelay = const Duration(seconds: 1),
-    this.onSuccess,
-    this.onError,
-    this.onMutate,
-  });
-
-  /// Number of retry attempts on failure
-  final int retry;
-
-  /// Delay between retry attempts
-  final Duration retryDelay;
-
-  /// Callback called on successful mutation
-  final OnUpdateSuccessFunctionWithRef<TData, TVariables, TParam>? onSuccess;
-
-  /// Callback called on mutation error
-  final OnUpdateErrorFunctionWithRef<TData, TVariables, TParam>? onError;
-
-  /// Callback called before mutation starts (useful for optimistic updates)
-  final OnUpdateMutateFunctionWithRef<TData, TVariables, TParam>? onMutate;
-
-  UpdateMutationOptions<TData, TVariables, TParam> copyWith({
-    int? retry,
-    Duration? retryDelay,
-    OnUpdateSuccessFunctionWithRef<TData, TVariables, TParam>? onSuccess,
-    OnUpdateErrorFunctionWithRef<TData, TVariables, TParam>? onError,
-    OnUpdateMutateFunctionWithRef<TData, TVariables, TParam>? onMutate,
-  }) =>
-      UpdateMutationOptions<TData, TVariables, TParam>(
-        retry: retry ?? this.retry,
-        retryDelay: retryDelay ?? this.retryDelay,
-        onSuccess: onSuccess ?? this.onSuccess,
-        onError: onError ?? this.onError,
-        onMutate: onMutate ?? this.onMutate,
-      );
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is UpdateMutationOptions<TData, TVariables, TParam> &&
-          other.retry == retry &&
-          other.retryDelay == retryDelay);
-
-  @override
-  int get hashCode => Object.hash(retry, retryDelay);
-
-  @override
-  String toString() => 'UpdateMutationOptions<$TData, $TVariables, $TParam>('
-      'retry: $retry, '
-      'retryDelay: $retryDelay)';
-}
-
 /// Notifier for managing mutation state
 class MutationNotifier<TData, TVariables> extends Notifier<MutationState<TData>>
     with QueryClientMixin {
@@ -77,7 +21,7 @@ class MutationNotifier<TData, TVariables> extends Notifier<MutationState<TData>>
   }
 
   final MutationFunctionWithRef<TData, TVariables> mutationFunction;
-  final MutationOptions<TData, TVariables> options;
+  final MutationOptions<TData, TVariables, TVariables> options;
 
   int _retryCount = 0;
 
@@ -91,14 +35,14 @@ class MutationNotifier<TData, TVariables> extends Notifier<MutationState<TData>>
 
     try {
       // Call onMutate callback for optimistic updates
-      await options.onMutate?.call(ref, variables);
+      await options.onMutate?.call(ref, variables, variables);
 
       final data = await mutationFunction(ref, variables);
       _safeState(MutationSuccess(data));
       _retryCount = 0;
 
       // Call success callback
-      options.onSuccess?.call(ref, data, variables);
+      options.onSuccess?.call(ref, data, variables, variables);
 
       return data;
     } catch (error, stackTrace) {
@@ -115,7 +59,7 @@ class MutationNotifier<TData, TVariables> extends Notifier<MutationState<TData>>
       _retryCount = 0;
 
       // Call error callback
-      options.onError?.call(ref, variables, error, stackTrace);
+      options.onError?.call(ref, variables, variables, error, stackTrace);
 
       rethrow;
     }
@@ -128,8 +72,8 @@ class MutationNotifier<TData, TVariables> extends Notifier<MutationState<TData>>
   }
 }
 
-class MutationNotifierAutoDispose<TData, TVariables> extends AutoDisposeNotifier<MutationState<TData>>
-    with QueryClientMixin {
+class MutationNotifierAutoDispose<TData, TVariables>
+    extends AutoDisposeNotifier<MutationState<TData>> with QueryClientMixin {
   MutationNotifierAutoDispose({
     required this.mutationFunction,
     required this.options,
@@ -141,7 +85,7 @@ class MutationNotifierAutoDispose<TData, TVariables> extends AutoDisposeNotifier
   }
 
   final MutationFunctionWithRef<TData, TVariables> mutationFunction;
-  final MutationOptions<TData, TVariables> options;
+  final MutationOptions<TData, TVariables, TVariables> options;
 
   int _retryCount = 0;
 
@@ -155,14 +99,14 @@ class MutationNotifierAutoDispose<TData, TVariables> extends AutoDisposeNotifier
 
     try {
       // Call onMutate callback for optimistic updates
-      await options.onMutate?.call(ref, variables);
+      await options.onMutate?.call(ref, variables, variables);
 
       final data = await mutationFunction(ref, variables);
       _safeState(MutationSuccess(data));
       _retryCount = 0;
 
       // Call success callback
-      options.onSuccess?.call(ref, data, variables);
+      options.onSuccess?.call(ref, data, variables, variables);
 
       return data;
     } catch (error, stackTrace) {
@@ -179,7 +123,7 @@ class MutationNotifierAutoDispose<TData, TVariables> extends AutoDisposeNotifier
       _retryCount = 0;
 
       // Call error callback
-      options.onError?.call(ref, variables, error, stackTrace);
+      options.onError?.call(ref, variables, variables, error, stackTrace);
 
       rethrow;
     }
@@ -205,8 +149,9 @@ class MutationNotifierFamily<TData, TVariables, TParam>
     return const MutationIdle();
   }
 
-  final MutationFunctionWithRefAndParam<TData, TVariables, TParam> mutationFunction;
-  final UpdateMutationOptions<TData, TVariables, TParam> options;
+  final MutationFunctionWithRefAndParam<TData, TVariables, TParam>
+      mutationFunction;
+  final MutationOptions<TData, TVariables, TParam> options;
 
   int _retryCount = 0;
 
@@ -271,8 +216,9 @@ class MutationNotifierFamilyAutoDispose<TData, TVariables, TParam>
     return const MutationIdle();
   }
 
-  final MutationFunctionWithRefAndParam<TData, TVariables, TParam> mutationFunction;
-  final UpdateMutationOptions<TData, TVariables, TParam> options;
+  final MutationFunctionWithRefAndParam<TData, TVariables, TParam>
+      mutationFunction;
+  final MutationOptions<TData, TVariables, TParam> options;
 
   int _retryCount = 0;
 
@@ -327,7 +273,7 @@ class MutationNotifierFamilyAutoDispose<TData, TVariables, TParam>
 NotifierProvider<MutationNotifier<TData, TVariables>,
     MutationState<TData>> createProvider<TData, TVariables>({
   required String name,
-  required CreateMutationFunctionWithRef<TData, TVariables> mutationFn,
+  required MutationFunctionWithRef<TData, TVariables> mutationFn,
   int? retry = 0,
   Duration? retryDelay = const Duration(seconds: 1),
   OnSuccessFunctionWithRef<TData, TVariables>? onSuccess,
@@ -340,11 +286,11 @@ NotifierProvider<MutationNotifier<TData, TVariables>,
         options: MutationOptions(
           retry: retry ?? 0,
           retryDelay: retryDelay ?? const Duration(seconds: 1),
-          onSuccess: (ref, data, variables) =>
+          onSuccess: (ref, data, variables, _) =>
               onSuccess?.call(ref, data, variables),
-          onError: (ref, variables, error, stackTrace) =>
+          onError: (ref, variables, _, error, stackTrace) =>
               onError?.call(ref, variables, error, stackTrace),
-          onMutate: (ref, variables) =>
+          onMutate: (ref, variables, _) =>
               onMutate?.call(ref, variables) ?? Future<void>.value(),
         ),
       ),
@@ -362,13 +308,11 @@ NotifierProviderFamily<MutationNotifierFamily<TData, TVariables, TParam>,
   OnUpdateErrorFunctionWithRef<TData, TVariables, TParam>? onError,
   OnUpdateMutateFunctionWithRef<TData, TVariables, TParam>? onMutate,
 }) =>
-    NotifierProvider.family<
-        MutationNotifierFamily<TData, TVariables, TParam>,
-        MutationState<TData>,
-        TParam>(
+    NotifierProvider.family<MutationNotifierFamily<TData, TVariables, TParam>,
+        MutationState<TData>, TParam>(
       () => MutationNotifierFamily<TData, TVariables, TParam>(
         mutationFunction: mutationFn,
-        options: UpdateMutationOptions(
+        options: MutationOptions(
           retry: retry ?? 0,
           retryDelay: retryDelay ?? const Duration(seconds: 1),
           onSuccess: (ref, data, variables, param) =>
@@ -398,10 +342,11 @@ NotifierProviderFamily<MutationNotifierFamily<TData, TParam, TParam>,
         mutationFunction: (Ref ref, TParam param, TParam arg) {
           return mutationFn(ref, arg);
         },
-        options: UpdateMutationOptions(
+        options: MutationOptions(
           retry: retry ?? 0,
           retryDelay: retryDelay ?? const Duration(seconds: 1),
-          onSuccess: (ref, data, param, arg) => onSuccess?.call(ref, data, param),
+          onSuccess: (ref, data, param, arg) =>
+              onSuccess?.call(ref, data, param),
           onError: (ref, param, arg, error, stackTrace) =>
               onError?.call(ref, param, error, stackTrace),
           onMutate: (ref, param, arg) =>
@@ -415,28 +360,28 @@ NotifierProviderFamily<MutationNotifierFamily<TData, TParam, TParam>,
 // For specialized update functionality, create a custom wrapper
 
 /// Auto-dispose create mutation provider
-AutoDisposeNotifierProvider<
-    MutationNotifierAutoDispose<TData, TVariables>,
+AutoDisposeNotifierProvider<MutationNotifierAutoDispose<TData, TVariables>,
     MutationState<TData>> createProviderAutoDispose<TData, TVariables>({
   required String name,
-  required CreateMutationFunctionWithRef<TData, TVariables> mutationFn,
+  required MutationFunctionWithRef<TData, TVariables> mutationFn,
   int? retry = 0,
   Duration? retryDelay = const Duration(seconds: 1),
   OnSuccessFunctionWithRef<TData, TVariables>? onSuccess,
   OnErrorFunctionWithRef<TData, TVariables>? onError,
   OnMutateFunctionWithRef<TData, TVariables>? onMutate,
 }) =>
-    AutoDisposeNotifierProvider<
-        MutationNotifierAutoDispose<TData, TVariables>,
+    AutoDisposeNotifierProvider<MutationNotifierAutoDispose<TData, TVariables>,
         MutationState<TData>>(
       () => MutationNotifierAutoDispose<TData, TVariables>(
         mutationFunction: mutationFn,
         options: MutationOptions(
           retry: retry ?? 0,
           retryDelay: retryDelay ?? const Duration(seconds: 1),
-          onSuccess: onSuccess,
-          onError: onError,
-          onMutate: (ref, variables) =>
+          onSuccess: (ref, data, variables, _) =>
+              onSuccess?.call(ref, data, variables),
+          onError: (ref, variables, _, error, stackTrace) =>
+              onError?.call(ref, variables, error, stackTrace),
+          onMutate: (ref, variables, _) =>
               onMutate?.call(ref, variables) ?? Future<void>.value(),
         ),
       ),
@@ -464,11 +409,13 @@ AutoDisposeNotifierProviderFamily<
         mutationFunction: (Ref ref, TParam param, TParam arg) {
           return mutationFn(ref, arg);
         },
-        options: UpdateMutationOptions(
+        options: MutationOptions(
           retry: retry ?? 0,
           retryDelay: retryDelay ?? const Duration(seconds: 1),
-          onSuccess: (ref, data, param, arg) => onSuccess?.call(ref, data, param),
-          onError: (ref, param, arg, error, stackTrace) => onError?.call(ref, arg, error, stackTrace),
+          onSuccess: (ref, data, param, arg) =>
+              onSuccess?.call(ref, data, param),
+          onError: (ref, param, arg, error, stackTrace) =>
+              onError?.call(ref, arg, error, stackTrace),
           onMutate: (ref, param, arg) =>
               onMutate?.call(ref, arg) ?? Future<void>.value(),
         ),
@@ -495,7 +442,7 @@ AutoDisposeNotifierProviderFamily<
         TParam>(
       () => MutationNotifierFamilyAutoDispose<TData, TVariables, TParam>(
         mutationFunction: mutationFn,
-        options: UpdateMutationOptions(
+        options: MutationOptions(
           retry: retry ?? 0,
           retryDelay: retryDelay ?? const Duration(seconds: 1),
           onSuccess: onSuccess,
@@ -541,7 +488,9 @@ class MutationResult<TData, TVariables> {
 
 extension WidgetRefReadMutationResult on WidgetRef {
   /// Create a mutation result that can be used in widgets (modern version)
-  MutationResult<TData, TVariable> readCreateMutationResult<TData, TVariable>(NotifierProvider<MutationNotifier<TData, TVariable>, MutationState<TData>> provider) {
+  MutationResult<TData, TVariable> readCreateMutationResult<TData, TVariable>(
+      NotifierProvider<MutationNotifier<TData, TVariable>, MutationState<TData>>
+          provider) {
     final notifier = read(provider.notifier);
     final state = watch(provider);
 
@@ -552,7 +501,12 @@ extension WidgetRefReadMutationResult on WidgetRef {
     );
   }
 
-  MutationResult<TData, TVariable> readCreateAutoDisposeMutationResult<TData, TVariable>(AutoDisposeNotifierProvider<MutationNotifierAutoDispose<TData, TVariable>, MutationState<TData>> provider) {
+  MutationResult<TData, TVariable>
+      readCreateAutoDisposeMutationResult<TData, TVariable>(
+          AutoDisposeNotifierProvider<
+                  MutationNotifierAutoDispose<TData, TVariable>,
+                  MutationState<TData>>
+              provider) {
     final notifier = read(provider.notifier);
     final state = watch(provider);
 
@@ -563,7 +517,11 @@ extension WidgetRefReadMutationResult on WidgetRef {
     );
   }
 
-  MutationResult<TData, TParam> readDeleteMutationResult<TData, TParam>(NotifierProviderFamily<MutationNotifierFamily<TData, TParam, TParam>, MutationState<TData>, TParam> provider, TParam param) {
+  MutationResult<TData, TParam> readDeleteMutationResult<TData, TParam>(
+      NotifierProviderFamily<MutationNotifierFamily<TData, TParam, TParam>,
+              MutationState<TData>, TParam>
+          provider,
+      TParam param) {
     final notifier = read(provider(param).notifier);
     final state = watch(provider(param));
 
@@ -573,8 +531,15 @@ extension WidgetRefReadMutationResult on WidgetRef {
       reset: notifier.reset,
     );
   }
-  
-  MutationResult<TData, TParam> readDeleteAutoDisposeMutationResult<TData, TParam>(AutoDisposeNotifierProviderFamily<MutationNotifierFamilyAutoDispose<TData, TParam, TParam>, MutationState<TData>, TParam> provider, TParam param) {
+
+  MutationResult<TData, TParam>
+      readDeleteAutoDisposeMutationResult<TData, TParam>(
+          AutoDisposeNotifierProviderFamily<
+                  MutationNotifierFamilyAutoDispose<TData, TParam, TParam>,
+                  MutationState<TData>,
+                  TParam>
+              provider,
+          TParam param) {
     final notifier = read(provider(param).notifier);
     final state = watch(provider(param));
 
@@ -585,8 +550,14 @@ extension WidgetRefReadMutationResult on WidgetRef {
     );
   }
 
-
-  MutationResult<TData, TVariables> readUpdateMutationResult<TData, TVariables, TParam>(NotifierProviderFamily<MutationNotifierFamily<TData, TVariables, TParam>, MutationState<TData>, TParam> provider, TParam param) {
+  MutationResult<TData, TVariables>
+      readUpdateMutationResult<TData, TVariables, TParam>(
+          NotifierProviderFamily<
+                  MutationNotifierFamily<TData, TVariables, TParam>,
+                  MutationState<TData>,
+                  TParam>
+              provider,
+          TParam param) {
     final notifier = read(provider(param).notifier);
     final state = watch(provider(param));
 
@@ -596,8 +567,15 @@ extension WidgetRefReadMutationResult on WidgetRef {
       reset: notifier.reset,
     );
   }
-  
-  MutationResult<TData, TVariables> readUpdateAutoDisposeMutationResult<TData, TVariables, TParam>(AutoDisposeNotifierProviderFamily<MutationNotifierFamilyAutoDispose<TData, TVariables, TParam>, MutationState<TData>, TParam> provider, TParam param) {
+
+  MutationResult<TData, TVariables>
+      readUpdateAutoDisposeMutationResult<TData, TVariables, TParam>(
+          AutoDisposeNotifierProviderFamily<
+                  MutationNotifierFamilyAutoDispose<TData, TVariables, TParam>,
+                  MutationState<TData>,
+                  TParam>
+              provider,
+          TParam param) {
     final notifier = read(provider(param).notifier);
     final state = watch(provider(param));
 
