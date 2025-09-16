@@ -161,7 +161,10 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
   }
 
   /// Public method to refetch data
-  Future<void> refetch() async {
+  Future<void> refetch({bool background = false}) async {
+    if (background) {
+      return _backgroundRefetch();
+    }
     _safeState(const AsyncValue.loading());
     try {
       final data = await _performFetch();
