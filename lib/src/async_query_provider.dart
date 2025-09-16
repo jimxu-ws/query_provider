@@ -7,7 +7,8 @@ import 'app_lifecycle_manager.dart';
 import 'query_cache.dart';
 import 'query_client.dart';
 import 'query_options.dart';
-import 'state_query_provider.dart' show QueryFunctionWithParamsWithRef, QueryFunctionWithRef;
+import 'state_query_provider.dart'
+    show QueryFunctionWithParamsWithRef, QueryFunctionWithRef;
 import 'window_focus_manager.dart';
 
 /// 🔥 Modern AsyncNotifier-based query implementation
@@ -39,20 +40,20 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
     // Prevent duplicate initialization
     if (!_isInitialized) {
       _isInitialized = true;
-      
+
       // Set up cache change listener for automatic UI updates
       _setupCacheListener();
-      
+
       // Set up lifecycle and window focus callbacks
       _setupLifecycleCallbacks();
       _setupWindowFocusCallbacks();
-      
+
       // Set up cleanup when the notifier is disposed
       ref.onDispose(() {
         _isDisposed = true;
         _refetchTimer?.cancel();
         _cache.removeAllListeners(queryKey);
-        
+
         // Clean up lifecycle callbacks
         if (options.refetchOnAppFocus) {
           _lifecycleManager.removeOnResumeCallback(_onAppResumed);
@@ -60,12 +61,12 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
         if (options.pauseRefetchInBackground) {
           _lifecycleManager.removeOnPauseCallback(_onAppPaused);
         }
-        
+
         // Clean up window focus callbacks
         if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
           _windowFocusManager.removeOnFocusCallback(_onWindowFocused);
         }
-        
+
         // Reset initialization flag
         _isInitialized = false;
       });
@@ -88,11 +89,15 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
         return cachedEntry.data as T;
       }
 
-      if(options.keepPreviousData && ((!_isDisposed && state.hasValue) || (cachedEntry != null && cachedEntry.hasData))){
+      if (options.keepPreviousData &&
+          ((!_isDisposed && state.hasValue) ||
+              (cachedEntry != null && cachedEntry.hasData))) {
         Future.microtask(() => _backgroundRefetch());
 
         debugPrint('Keeping previous data in async query notifier');
-        return (!_isDisposed && state.hasValue) ? state.value as T : cachedEntry?.data as T;
+        return (!_isDisposed && state.hasValue)
+            ? state.value as T
+            : cachedEntry?.data as T;
       }
     }
 
@@ -105,7 +110,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
   }
 
   void _safeState(AsyncValue<T> state) {
-    if(!_isDisposed){
+    if (!_isDisposed) {
       this.state = state;
     }
   }
@@ -116,7 +121,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
       debugPrint('Performing fetch in async query notifier');
       final data = await queryFn(ref);
       final now = DateTime.now();
-      
+
       // Cache the result
       _setCachedEntry(QueryCacheEntry<T>(
         data: data,
@@ -126,18 +131,18 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
 
       _retryCount = 0;
       options.onSuccess?.call(data);
-      
+
       return data;
     } catch (error, stackTrace) {
       options.onError?.call(error, stackTrace);
-      
+
       // Handle retry logic
       if (_retryCount < options.retry) {
         _retryCount++;
         await Future<void>.delayed(options.retryDelay);
         return _performFetch();
       }
-      
+
       rethrow;
     }
   }
@@ -188,15 +193,18 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
   /// Set up cache change listener
   void _setupCacheListener() {
     _cache.addListener<T>(queryKey, (QueryCacheEntry<T>? entry) {
-      debugPrint('Cache listener called for key $queryKey in async query notifier');
+      debugPrint(
+          'Cache listener called for key $queryKey in async query notifier');
       if (entry?.hasData ?? false) {
-        debugPrint('Cache data changed for key $queryKey in async query notifier');
+        debugPrint(
+            'Cache data changed for key $queryKey in async query notifier');
         _safeState(AsyncValue.data(entry!.data as T));
-      }else if(entry==null){
-        debugPrint('Cache entry removed for key $queryKey in async query notifier');
-        if(options.onCacheEvicted != null){
+      } else if (entry == null) {
+        debugPrint(
+            'Cache entry removed for key $queryKey in async query notifier');
+        if (options.onCacheEvicted != null) {
           options.onCacheEvicted!(queryKey);
-        }else if(!_isDisposed){
+        } else if (!_isDisposed) {
           refetch();
         }
       }
@@ -209,7 +217,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
     if (options.refetchOnAppFocus) {
       _lifecycleManager.addOnResumeCallback(_onAppResumed);
     }
-    
+
     // Pause refetching when app goes to background (if enabled)
     if (options.pauseRefetchInBackground) {
       _lifecycleManager.addOnPauseCallback(_onAppPaused);
@@ -241,7 +249,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
   void _onAppResumed() {
     // Resume refetching and check if we need to refetch stale data
     _isRefetchPaused = false;
-    
+
     if (options.enabled) {
       final cachedEntry = _getCachedEntry();
       if (cachedEntry != null && cachedEntry.isStale) {
@@ -282,7 +290,8 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
 }
 
 /// AsyncNotifier with parameters - full-featured implementation
-class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with QueryClientMixin {
+class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
+    with QueryClientMixin {
   AsyncQueryNotifierFamily({
     required this.queryFn,
     required this.options,
@@ -295,7 +304,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
 
   Timer? _refetchTimer;
   int _retryCount = 0;
-  
+
   // Initialize cache, lifecycle manager, and window focus manager
   final QueryCache _cache = getGlobalQueryCache();
   final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
@@ -311,20 +320,20 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
     // Prevent duplicate initialization
     if (!_isInitialized) {
       _isInitialized = true;
-      
+
       // Set up cache change listener for automatic UI updates
       _setupCacheListener(paramKey);
-      
+
       // Set up lifecycle and window focus callbacks
       _setupLifecycleCallbacks();
       _setupWindowFocusCallbacks();
-      
+
       // Set up cleanup when the notifier is disposed
       ref.onDispose(() {
         _isDisposed = true;
         _refetchTimer?.cancel();
         _cache.removeAllListeners(paramKey);
-        
+
         // Clean up lifecycle callbacks
         if (options.refetchOnAppFocus) {
           _lifecycleManager.removeOnResumeCallback(_onAppResumed);
@@ -332,12 +341,12 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
         if (options.pauseRefetchInBackground) {
           _lifecycleManager.removeOnPauseCallback(_onAppPaused);
         }
-        
+
         // Clean up window focus callbacks
         if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
           _windowFocusManager.removeOnFocusCallback(_onWindowFocused);
         }
-        
+
         // Reset initialization flag
         _isInitialized = false;
       });
@@ -360,10 +369,14 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
         return cachedEntry.data as T;
       }
 
-      if (options.keepPreviousData && ((!_isDisposed && state.hasValue) || (cachedEntry != null && cachedEntry.hasData))) {
+      if (options.keepPreviousData &&
+          ((!_isDisposed && state.hasValue) ||
+              (cachedEntry != null && cachedEntry.hasData))) {
         Future.microtask(() => _backgroundRefetch(arg));
         debugPrint('Keeping previous data in async query notifier family');
-        return (!_isDisposed && state.hasValue) ? state.value as T : cachedEntry?.data as T;
+        return (!_isDisposed && state.hasValue)
+            ? state.value as T
+            : cachedEntry?.data as T;
       }
     }
 
@@ -376,7 +389,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
   }
 
   void _safeState(AsyncValue<T> state) {
-    if(!_isDisposed){
+    if (!_isDisposed) {
       this.state = state;
     }
   }
@@ -385,31 +398,33 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
   Future<T> _performFetch(P arg) async {
     try {
       debugPrint('Performing fetch in async query notifier family');
-      final data = await queryFn(ref,arg);
+      final data = await queryFn(ref, arg);
       final now = DateTime.now();
       final paramKey = '$queryKey-$arg';
-      
+
       // Cache the result
-      _setCachedEntry(paramKey, QueryCacheEntry<T>(
-        data: data,
-        fetchedAt: now,
-        options: options,
-      ));
+      _setCachedEntry(
+          paramKey,
+          QueryCacheEntry<T>(
+            data: data,
+            fetchedAt: now,
+            options: options,
+          ));
 
       _retryCount = 0;
       options.onSuccess?.call(data);
-      
+
       return data;
     } catch (error, stackTrace) {
       options.onError?.call(error, stackTrace);
-      
+
       // Handle retry logic
       if (_retryCount < options.retry) {
         _retryCount++;
         await Future<void>.delayed(options.retryDelay);
         return _performFetch(arg);
       }
-      
+
       rethrow;
     }
   }
@@ -428,8 +443,12 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
   }
 
   /// Public method to refetch data
-  Future<void> refetch() async {
-    _safeState(const AsyncValue.loading());
+  Future<void> refetch({bool background = false}) async {
+    if (background) {
+      return _backgroundRefetch(arg);
+    } else {
+      _safeState(const AsyncValue.loading());
+    }
     try {
       final data = await _performFetch(arg);
       _safeState(AsyncValue.data(data));
@@ -460,18 +479,20 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
   /// Set up cache change listener
   void _setupCacheListener(String key) {
     _cache.addListener<T>(key, (QueryCacheEntry<T>? entry) {
-      debugPrint('Cache listener called for key $key in async query notifier family, change state to ${state.runtimeType}');
+      debugPrint(
+          'Cache listener called for key $key in async query notifier family, change state to ${state.runtimeType}');
       if (entry?.hasData ?? false) {
-        debugPrint('Cache data changed for key $key in async query notifier family');
+        debugPrint(
+            'Cache data changed for key $key in async query notifier family');
         _safeState(AsyncValue.data(entry!.data as T));
-      }else if(entry==null){
-        debugPrint('Cache entry removed for key $key in async query notifier family');
-        if(options.onCacheEvicted != null){
+      } else if (entry == null) {
+        debugPrint(
+            'Cache entry removed for key $key in async query notifier family');
+        if (options.onCacheEvicted != null) {
           options.onCacheEvicted!(key);
-        }else if(!_isDisposed){
+        } else if (!_isDisposed) {
           refetch();
-        }else{
-        }
+        } else {}
       }
     });
   }
@@ -482,7 +503,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
     if (options.refetchOnAppFocus) {
       _lifecycleManager.addOnResumeCallback(_onAppResumed);
     }
-    
+
     // Pause refetching when app goes to background (if enabled)
     if (options.pauseRefetchInBackground) {
       _lifecycleManager.addOnPauseCallback(_onAppPaused);
@@ -514,7 +535,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
   void _onAppResumed() {
     // Resume refetching and check if we need to refetch stale data
     _isRefetchPaused = false;
-    
+
     if (options.enabled) {
       final cachedEntry = _getCachedEntry('$queryKey-$arg');
       if (cachedEntry != null && cachedEntry.isStale) {
@@ -555,12 +576,12 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
 }
 
 /// 🔥 Regular AsyncNotifier-based query provider
-/// 
+///
 /// **Use this when:**
 /// - Data should persist across widget rebuilds
 /// - Shared data across multiple widgets
 /// - Long-lived cache requirements
-/// 
+///
 /// Example:
 /// ```dart
 /// final usersProvider = asyncQueryProvider<List<User>>(
@@ -571,7 +592,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P> with Quer
 ///     cacheTime: Duration(minutes: 10),
 ///   ),
 /// );
-/// 
+///
 /// // Usage in widget:
 /// Widget build(BuildContext context, WidgetRef ref) {
 ///   final usersAsync = ref.watch(usersProvider);
@@ -605,13 +626,13 @@ AsyncNotifierProvider<AsyncQueryNotifier<T>, T> asyncQueryProvider<T>({
 }
 
 /// 🔥 Auto-dispose AsyncNotifier-based query provider
-/// 
+///
 /// **Use this when:**
 /// - Temporary data that should be cleaned up when not watched
 /// - Memory optimization for large datasets
 /// - Short-lived screens or components
 /// - Data that doesn't need to persist across navigation
-/// 
+///
 /// **Features:**
 /// - ✅ Automatic cleanup when no longer watched
 /// - ✅ Full cache integration with staleTime/cacheTime
@@ -621,7 +642,7 @@ AsyncNotifierProvider<AsyncQueryNotifier<T>, T> asyncQueryProvider<T>({
 /// - ✅ Background refetch capabilities
 /// - ✅ keepPreviousData support
 /// - ✅ Memory leak prevention
-/// 
+///
 /// Example:
 /// ```dart
 /// final tempDataProvider = asyncQueryProviderAutoDispose<TempData>(
@@ -632,7 +653,7 @@ AsyncNotifierProvider<AsyncQueryNotifier<T>, T> asyncQueryProvider<T>({
 ///     cacheTime: Duration(minutes: 5),
 ///   ),
 /// );
-/// 
+///
 /// // Usage in widget:
 /// final tempDataAsync = ref.watch(tempDataProvider);
 /// tempDataAsync.when(
@@ -642,7 +663,8 @@ AsyncNotifierProvider<AsyncQueryNotifier<T>, T> asyncQueryProvider<T>({
 /// );
 /// ```
 /// Auto-dispose AsyncNotifier
-class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T> with QueryClientMixin {
+class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
+    with QueryClientMixin {
   AsyncQueryNotifierAutoDispose({
     required this.queryFn,
     required this.options,
@@ -666,18 +688,18 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T> with 
   @override
   FutureOr<T> build() async {
     _isDisposed = false;
-    
+
     if (!_isInitialized) {
       _isInitialized = true;
       _setupCacheListener();
       _setupLifecycleCallbacks();
       _setupWindowFocusCallbacks();
-      
+
       ref.onDispose(() {
         _isDisposed = true;
         _refetchTimer?.cancel();
         _cache.removeAllListeners(queryKey);
-        
+
         if (options.refetchOnAppFocus) {
           _lifecycleManager.removeOnResumeCallback(_onAppResumed);
         }
@@ -687,7 +709,7 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T> with 
         if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
           _windowFocusManager.removeOnFocusCallback(_onWindowFocused);
         }
-        
+
         _isInitialized = false;
       });
     }
@@ -705,9 +727,13 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T> with 
         return cachedEntry.data as T;
       }
 
-      if(options.keepPreviousData && ((!_isDisposed && state.hasValue) || (cachedEntry != null && cachedEntry.hasData))){
+      if (options.keepPreviousData &&
+          ((!_isDisposed && state.hasValue) ||
+              (cachedEntry != null && cachedEntry.hasData))) {
         Future.microtask(() => _backgroundRefetch());
-        return (!_isDisposed && state.hasValue) ? state.value as T : cachedEntry?.data as T;
+        return (!_isDisposed && state.hasValue)
+            ? state.value as T
+            : cachedEntry?.data as T;
       }
     }
 
@@ -719,14 +745,14 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T> with 
   }
 
   void _safeState(AsyncValue<T> state) {
-    if(!_isDisposed) this.state = state;
+    if (!_isDisposed) this.state = state;
   }
 
   Future<T> _performFetch() async {
     try {
       final data = await queryFn(ref);
       final now = DateTime.now();
-      
+
       _setCachedEntry(QueryCacheEntry<T>(
         data: data,
         fetchedAt: now,
@@ -735,17 +761,17 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T> with 
 
       _retryCount = 0;
       options.onSuccess?.call(data);
-      
+
       return data;
     } catch (error, stackTrace) {
       options.onError?.call(error, stackTrace);
-      
+
       if (_retryCount < options.retry) {
         _retryCount++;
         await Future<void>.delayed(options.retryDelay);
         return _performFetch();
       }
-      
+
       rethrow;
     }
   }
@@ -771,7 +797,7 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T> with 
 
   QueryCacheEntry<T>? _getCachedEntry() => _cache.get<T>(queryKey);
   void _setCachedEntry(QueryCacheEntry<T> entry) => _cache.set(queryKey, entry);
-  
+
   void _setupCacheListener() {
     _cache.addListener<T>(queryKey, (entry) {
       if (entry?.hasData ?? false) {
@@ -779,7 +805,7 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T> with 
       } else if (entry == null) {
         if (options.onCacheEvicted != null) {
           options.onCacheEvicted!(queryKey);
-        } else if(!_isDisposed){
+        } else if (!_isDisposed) {
           refetch();
         }
       }
@@ -836,7 +862,8 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T> with 
 }
 
 /// Auto-dispose AsyncNotifier with parameters
-AutoDisposeAsyncNotifierProvider<AsyncQueryNotifierAutoDispose<T>, T> asyncQueryProviderAutoDispose<T>({
+AutoDisposeAsyncNotifierProvider<AsyncQueryNotifierAutoDispose<T>, T>
+    asyncQueryProviderAutoDispose<T>({
   required String name,
   required QueryFunctionWithRef<T> queryFn,
   QueryOptions<T>? options,
@@ -854,13 +881,13 @@ AutoDisposeAsyncNotifierProvider<AsyncQueryNotifierAutoDispose<T>, T> asyncQuery
 }
 
 /// 🔥 Full-featured AsyncNotifier-based query provider with parameters
-/// 
+///
 /// **Use this when:**
 /// - Parameters are relatively stable
 /// - You want to keep data cached across widget rebuilds
 /// - Shared data across multiple widgets
 /// - You need all advanced query features (caching, lifecycle, retry, etc.)
-/// 
+///
 /// **Features:**
 /// - ✅ Full cache integration with staleTime/cacheTime
 /// - ✅ Lifecycle management (app focus, window focus)
@@ -869,7 +896,7 @@ AutoDisposeAsyncNotifierProvider<AsyncQueryNotifierAutoDispose<T>, T> asyncQuery
 /// - ✅ Background refetch capabilities
 /// - ✅ keepPreviousData support
 /// - ✅ Memory leak prevention
-/// 
+///
 /// Example:
 /// ```dart
 /// final userProvider = asyncQueryProviderFamily<User, int>(
@@ -882,7 +909,7 @@ AutoDisposeAsyncNotifierProvider<AsyncQueryNotifierAutoDispose<T>, T> asyncQuery
 ///     keepPreviousData: true,
 ///   ),
 /// );
-/// 
+///
 /// // Usage:
 /// final userAsync = ref.watch(userProvider(userId));
 /// userAsync.when(
@@ -891,7 +918,8 @@ AutoDisposeAsyncNotifierProvider<AsyncQueryNotifierAutoDispose<T>, T> asyncQuery
 ///   data: (user) => UserWidget(user),
 /// );
 /// ```
-AsyncNotifierProviderFamily<AsyncQueryNotifierFamily<T, P>, T, P> asyncQueryProviderFamily<T, P>({
+AsyncNotifierProviderFamily<AsyncQueryNotifierFamily<T, P>, T, P>
+    asyncQueryProviderFamily<T, P>({
   required String name,
   required QueryFunctionWithParamsWithRef<T, P> queryFn,
   QueryOptions<T>? options,
@@ -909,14 +937,14 @@ AsyncNotifierProviderFamily<AsyncQueryNotifierFamily<T, P>, T, P> asyncQueryProv
 }
 
 /// 🔥 Auto-dispose AsyncNotifier-based query provider with parameters
-/// 
+///
 /// **Use this when:**
 /// - Dynamic parameters that change frequently
 /// - Temporary data that should be cleaned up when not watched
 /// - Memory optimization for large datasets with many parameter variations
 /// - Short-lived screens with parameterized data
 /// - User-specific data that doesn't need to persist
-/// 
+///
 /// **Features:**
 /// - ✅ Automatic cleanup when no longer watched
 /// - ✅ Parameter-based caching and invalidation
@@ -927,7 +955,7 @@ AsyncNotifierProviderFamily<AsyncQueryNotifierFamily<T, P>, T, P> asyncQueryProv
 /// - ✅ Background refetch capabilities
 /// - ✅ keepPreviousData support
 /// - ✅ Memory leak prevention
-/// 
+///
 /// Example:
 /// ```dart
 /// final userDetailProvider = asyncQueryProviderFamilyAutoDispose<User, int>(
@@ -939,7 +967,7 @@ AsyncNotifierProviderFamily<AsyncQueryNotifierFamily<T, P>, T, P> asyncQueryProv
 ///     keepPreviousData: true,
 ///   ),
 /// );
-/// 
+///
 /// // Usage in widget:
 /// final userAsync = ref.watch(userDetailProvider(userId));
 /// userAsync.when(
@@ -949,7 +977,8 @@ AsyncNotifierProviderFamily<AsyncQueryNotifierFamily<T, P>, T, P> asyncQueryProv
 /// );
 /// ```
 /// Auto-dispose AsyncNotifier with parameters
-class AsyncQueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyAsyncNotifier<T, P> with QueryClientMixin {
+class AsyncQueryNotifierFamilyAutoDispose<T, P>
+    extends AutoDisposeFamilyAsyncNotifier<T, P> with QueryClientMixin {
   AsyncQueryNotifierFamilyAutoDispose({
     required this.queryFn,
     required this.options,
@@ -962,7 +991,7 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyAsyncNo
 
   Timer? _refetchTimer;
   int _retryCount = 0;
-  
+
   final QueryCache _cache = getGlobalQueryCache();
   final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
   final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
@@ -974,18 +1003,18 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyAsyncNo
   FutureOr<T> build(P arg) async {
     final paramKey = '$queryKey-$arg';
     _isDisposed = false;
-    
+
     if (!_isInitialized) {
       _isInitialized = true;
       _setupCacheListener(paramKey);
       _setupLifecycleCallbacks();
       _setupWindowFocusCallbacks();
-      
+
       ref.onDispose(() {
         _isDisposed = true;
         _refetchTimer?.cancel();
         _cache.removeAllListeners(paramKey);
-        
+
         if (options.refetchOnAppFocus) {
           _lifecycleManager.removeOnResumeCallback(_onAppResumed);
         }
@@ -995,7 +1024,7 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyAsyncNo
         if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
           _windowFocusManager.removeOnFocusCallback(_onWindowFocused);
         }
-        
+
         _isInitialized = false;
       });
     }
@@ -1013,9 +1042,13 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyAsyncNo
         return cachedEntry.data as T;
       }
 
-      if (options.keepPreviousData && ((!_isDisposed && state.hasValue) || (cachedEntry != null && cachedEntry.hasData))) {
+      if (options.keepPreviousData &&
+          ((!_isDisposed && state.hasValue) ||
+              (cachedEntry != null && cachedEntry.hasData))) {
         Future.microtask(() => _backgroundRefetch(arg));
-        return (!_isDisposed && state.hasValue) ? state.value as T : cachedEntry?.data as T;
+        return (!_isDisposed && state.hasValue)
+            ? state.value as T
+            : cachedEntry?.data as T;
       }
     }
 
@@ -1027,7 +1060,7 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyAsyncNo
   }
 
   void _safeState(AsyncValue<T> state) {
-    if(!_isDisposed) this.state = state;
+    if (!_isDisposed) this.state = state;
   }
 
   Future<T> _performFetch(P arg) async {
@@ -1035,26 +1068,28 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyAsyncNo
       final data = await queryFn(ref, arg);
       final now = DateTime.now();
       final paramKey = '$queryKey-$arg';
-      
-      _setCachedEntry(paramKey, QueryCacheEntry<T>(
-        data: data,
-        fetchedAt: now,
-        options: options,
-      ));
+
+      _setCachedEntry(
+          paramKey,
+          QueryCacheEntry<T>(
+            data: data,
+            fetchedAt: now,
+            options: options,
+          ));
 
       _retryCount = 0;
       options.onSuccess?.call(data);
-      
+
       return data;
     } catch (error, stackTrace) {
       options.onError?.call(error, stackTrace);
-      
+
       if (_retryCount < options.retry) {
         _retryCount++;
         await Future<void>.delayed(options.retryDelay);
         return _performFetch(arg);
       }
-      
+
       rethrow;
     }
   }
@@ -1079,8 +1114,9 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyAsyncNo
   }
 
   QueryCacheEntry<T>? _getCachedEntry(String key) => _cache.get<T>(key);
-  void _setCachedEntry(String key, QueryCacheEntry<T> entry) => _cache.set(key, entry);
-  
+  void _setCachedEntry(String key, QueryCacheEntry<T> entry) =>
+      _cache.set(key, entry);
+
   void _setupCacheListener(String key) {
     _cache.addListener<T>(key, (entry) {
       if (entry?.hasData ?? false) {
@@ -1088,7 +1124,7 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyAsyncNo
       } else if (entry == null) {
         if (options.onCacheEvicted != null) {
           options.onCacheEvicted!(key);
-        } else if(!_isDisposed){
+        } else if (!_isDisposed) {
           refetch();
         }
       }
@@ -1145,12 +1181,16 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyAsyncNo
 }
 
 /// Auto-dispose AsyncNotifier with parameters
-AutoDisposeAsyncNotifierProviderFamily<AsyncQueryNotifierFamilyAutoDispose<T, P>, T, P> asyncQueryProviderFamilyAutoDispose<T, P>({
+AutoDisposeAsyncNotifierProviderFamily<
+    AsyncQueryNotifierFamilyAutoDispose<T, P>,
+    T,
+    P> asyncQueryProviderFamilyAutoDispose<T, P>({
   required String name,
   required QueryFunctionWithParamsWithRef<T, P> queryFn,
   QueryOptions<T>? options,
 }) {
-  return AsyncNotifierProvider.autoDispose.family<AsyncQueryNotifierFamilyAutoDispose<T, P>, T, P>(
+  return AsyncNotifierProvider.autoDispose
+      .family<AsyncQueryNotifierFamilyAutoDispose<T, P>, T, P>(
     () {
       return AsyncQueryNotifierFamilyAutoDispose<T, P>(
         queryFn: queryFn,

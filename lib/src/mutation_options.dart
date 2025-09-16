@@ -10,6 +10,8 @@ typedef OnMutateFunctionWithRef<TData, TVariables> = Future<void> Function(Ref r
 
 /// A function that performs a mutation
 typedef MutationFunctionWithRef<TData, TVariables> = Future<TData> Function(Ref ref, TVariables variables);
+/// A function that performs a mutation with a reference and a parameter
+typedef MutationFunctionWithRefAndParam<TData, TVariables, TParam> = Future<TData> Function(Ref ref, TVariables variables, TParam param);
 /// A function that performs a create mutation with a reference
 typedef CreateMutationFunctionWithRef<TData, TVariables> = Future<TData> Function(Ref ref, TVariables variables);
 /// A function that performs a update mutation with a reference

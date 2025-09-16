@@ -1711,7 +1711,7 @@ extension WidgetRefReadQueryResult on WidgetRef {
   }
 }
 
-// Extension to handle infinite query state more elegantly
+/// Extension to handle infinite query state more elegantly
 extension InfiniteQueryStateExtension<T> on InfiniteQueryState<T> {
   R when<R>({
     required R Function() idle,

@@ -12,6 +12,7 @@ import 'window_focus_manager.dart';
 
 /// A function that fetches data for a query
 typedef QueryFunction<T> = Future<T> Function();
+/// A function that fetches data with a reference
 typedef QueryFunctionWithRef<T> = Future<T> Function(Ref ref);
 
 /// A function that fetches data with parameters
