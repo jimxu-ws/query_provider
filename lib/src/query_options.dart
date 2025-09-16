@@ -84,7 +84,8 @@ class QueryOptions<T> {
       refetchOnMount: refetchOnMount ?? this.refetchOnMount,
       refetchOnWindowFocus: refetchOnWindowFocus ?? this.refetchOnWindowFocus,
       refetchOnAppFocus: refetchOnAppFocus ?? this.refetchOnAppFocus,
-      pauseRefetchInBackground: pauseRefetchInBackground ?? this.pauseRefetchInBackground,
+      pauseRefetchInBackground:
+          pauseRefetchInBackground ?? this.pauseRefetchInBackground,
       refetchInterval: refetchInterval ?? this.refetchInterval,
       retry: retry ?? this.retry,
       retryDelay: retryDelay ?? this.retryDelay,
@@ -188,8 +189,7 @@ class InfiniteQueryOptions<T, TPageParam> extends QueryOptions<T> {
     void Function(T data)? onSuccess,
     void Function(Object error, StackTrace? stackTrace)? onError,
     TPageParam? Function(T lastPage, List<T> allPages)? getNextPageParam,
-    TPageParam? Function(T firstPage, List<T> allPages)?
-        getPreviousPageParam,
+    TPageParam? Function(T firstPage, List<T> allPages)? getPreviousPageParam,
     void Function(String queryKey)? onCacheEvicted,
   }) {
     return InfiniteQueryOptions<T, TPageParam>(
@@ -198,7 +198,8 @@ class InfiniteQueryOptions<T, TPageParam> extends QueryOptions<T> {
       refetchOnMount: refetchOnMount ?? this.refetchOnMount,
       refetchOnWindowFocus: refetchOnWindowFocus ?? this.refetchOnWindowFocus,
       refetchOnAppFocus: refetchOnAppFocus ?? this.refetchOnAppFocus,
-      pauseRefetchInBackground: pauseRefetchInBackground ?? this.pauseRefetchInBackground,
+      pauseRefetchInBackground:
+          pauseRefetchInBackground ?? this.pauseRefetchInBackground,
       refetchInterval: refetchInterval ?? this.refetchInterval,
       retry: retry ?? this.retry,
       retryDelay: retryDelay ?? this.retryDelay,

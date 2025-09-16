@@ -9,7 +9,7 @@ sealed class QueryState<T> {
   bool get isLoading => this is QueryLoading<T>;
 
   /// Returns true if the query has data
-  bool get hasData => this is QuerySuccess<T>;
+  bool get hasData => this is QuerySuccess<T> || this is QueryRefetching<T>;
 
   /// Returns true if the query has an error
   bool get hasError => this is QueryError<T>;

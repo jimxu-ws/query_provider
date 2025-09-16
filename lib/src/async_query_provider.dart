@@ -36,6 +36,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
 
   @override
   FutureOr<T> build() async {
+    debugPrint('Building async query notifier with cached data, $queryKey');
     _isDisposed = false;
     // Prevent duplicate initialization
     if (!_isInitialized) {
@@ -118,7 +119,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
   /// Perform the actual data fetch
   Future<T> _performFetch() async {
     try {
-      debugPrint('Performing fetch in async query notifier');
+      debugPrint('Performing fetch in async query notifier $queryKey');
       final data = await queryFn(ref);
       final now = DateTime.now();
 
@@ -150,18 +151,19 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
   /// Background refetch without changing loading state
   Future<void> _backgroundRefetch() async {
     try {
-      debugPrint('Background refetching in async query notifier');
+      debugPrint('Background refetching in async query notifier $queryKey');
       final data = await _performFetch();
       _safeState(AsyncValue.data(data));
     } catch (error, stackTrace) {
       // Silent background refresh failure - don't update state
-      debugPrint('Background refresh failed: $error');
+      debugPrint('Background refresh failed: $error in async query notifier $queryKey');
       debugPrint('Stack trace: $stackTrace');
     }
   }
 
   /// Public method to refetch data
   Future<void> refetch({bool background = false}) async {
+    debugPrint('Refetching in async query notifier $queryKey');
     if (background) {
       return _backgroundRefetch();
     }
@@ -198,7 +200,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
     _cache.addListener<T>(queryKey, (QueryCacheEntry<T>? entry) {
       debugPrint(
           'Cache listener called for key $queryKey in async query notifier');
-      if (entry?.hasData ?? false) {
+      if ((entry?.hasData ?? false) && !(state.hasValue && entry!.data == state.value)) {
         debugPrint(
             'Cache data changed for key $queryKey in async query notifier');
         _safeState(AsyncValue.data(entry!.data as T));
@@ -216,6 +218,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
 
   /// Set up lifecycle callbacks
   void _setupLifecycleCallbacks() {
+    debugPrint('Setting up lifecycle callbacks in async query notifier $queryKey');
     // Refetch when app comes to foreground (if enabled and data is stale)
     if (options.refetchOnAppFocus) {
       _lifecycleManager.addOnResumeCallback(_onAppResumed);
@@ -229,6 +232,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
 
   /// Set up window focus callbacks
   void _setupWindowFocusCallbacks() {
+    debugPrint('Setting up window focus callbacks in async query notifier $queryKey');
     // Refetch when window gains focus (if enabled and data is stale)
     if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
       _windowFocusManager.addOnFocusCallback(_onWindowFocused);
@@ -237,6 +241,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
 
   /// Schedule automatic refetching
   void _scheduleRefetch() {
+    debugPrint('Scheduling automatic refetching in async query notifier $queryKey');
     final interval = options.refetchInterval;
     if (interval != null && !_isRefetchPaused) {
       _refetchTimer?.cancel();
@@ -250,6 +255,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
 
   /// Callback for app resumed
   void _onAppResumed() {
+    debugPrint('App resumed in async query notifier $queryKey');
     // Resume refetching and check if we need to refetch stale data
     _isRefetchPaused = false;
 
@@ -263,12 +269,14 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
 
   /// Callback for app paused
   void _onAppPaused() {
+    debugPrint('App paused in async query notifier $queryKey');
     // Mark refetching as paused
     _isRefetchPaused = true;
   }
 
   /// Callback for window focused
   void _onWindowFocused() {
+    debugPrint('Window focused in async query notifier $queryKey');
     if (options.enabled && !_isRefetchPaused) {
       final cachedEntry = _getCachedEntry();
       if (cachedEntry != null && cachedEntry.isStale) {
@@ -279,12 +287,14 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
 
   /// Pause automatic refetching
   void pauseRefetch() {
+    debugPrint('Pausing automatic refetching in async query notifier $queryKey');
     _isRefetchPaused = true;
     _refetchTimer?.cancel();
   }
 
   /// Resume automatic refetching
-  void resumeRefetch() {
+  void resumeRefetch() {  
+    debugPrint('Resuming automatic refetching in async query notifier $queryKey');
     _isRefetchPaused = false;
     if (options.refetchInterval != null) {
       _scheduleRefetch();
@@ -319,6 +329,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
   @override
   FutureOr<T> build(P arg) async {
     final paramKey = '$queryKey-$arg';
+    debugPrint('Building async query notifier family with cached data, $paramKey');
     _isDisposed = false;
     // Prevent duplicate initialization
     if (!_isInitialized) {
@@ -368,7 +379,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
         if (options.refetchOnMount) {
           Future.microtask(() => _backgroundRefetch(arg));
         }
-        debugPrint('Returning cached data in async query notifier family');
+        debugPrint('Returning cached data in async query notifier family $paramKey');
         return cachedEntry.data as T;
       }
 
@@ -376,7 +387,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
           ((!_isDisposed && state.hasValue) ||
               (cachedEntry != null && cachedEntry.hasData))) {
         Future.microtask(() => _backgroundRefetch(arg));
-        debugPrint('Keeping previous data in async query notifier family');
+        debugPrint('Keeping previous data in async query notifier family $paramKey');
         return (!_isDisposed && state.hasValue)
             ? state.value as T
             : cachedEntry?.data as T;
@@ -387,7 +398,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
     if (!options.enabled) {
       throw StateError('Query is disabled and no cached data available');
     }
-
+    debugPrint('Fetching data in async query notifier family with cached data, $paramKey');
     return await _performFetch(arg);
   }
 
@@ -400,7 +411,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
   /// Perform the actual data fetch
   Future<T> _performFetch(P arg) async {
     try {
-      debugPrint('Performing fetch in async query notifier family');
+      debugPrint('Performing fetch in async query notifier family $queryKey');
       final data = await queryFn(ref, arg);
       final now = DateTime.now();
       final paramKey = '$queryKey-$arg';
@@ -435,18 +446,19 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
   /// Background refetch without changing loading state
   Future<void> _backgroundRefetch(P arg) async {
     try {
-      debugPrint('Background refetching in async query notifier family');
+      debugPrint('Background refetching in async query notifier family $queryKey');
       final data = await _performFetch(arg);
       _safeState(AsyncValue.data(data));
     } catch (error, stackTrace) {
       // Silent background refresh failure - don't update state
-      debugPrint('Background refresh failed: $error');
+      debugPrint('Background refresh failed: $error in async query notifier family $queryKey');
       debugPrint('Stack trace: $stackTrace');
     }
   }
 
   /// Public method to refetch data
   Future<void> refetch({bool background = false}) async {
+    debugPrint('Refetching in async query notifier family $queryKey');
     if (background) {
       return _backgroundRefetch(arg);
     } else {
@@ -462,6 +474,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
 
   /// Force refresh (ignore cache)
   Future<void> refresh() async {
+    debugPrint('Refreshing in async query notifier family $queryKey');
     _invalidateCache('$queryKey-$arg');
     await refetch();
   }
@@ -484,7 +497,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
     _cache.addListener<T>(key, (QueryCacheEntry<T>? entry) {
       debugPrint(
           'Cache listener called for key $key in async query notifier family, change state to ${state.runtimeType}');
-      if (entry?.hasData ?? false) {
+      if ((entry?.hasData ?? false) && !(state.hasValue && entry!.data == state.value)) {
         debugPrint(
             'Cache data changed for key $key in async query notifier family');
         _safeState(AsyncValue.data(entry!.data as T));
@@ -502,6 +515,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
 
   /// Set up lifecycle callbacks
   void _setupLifecycleCallbacks() {
+    debugPrint('Setting up lifecycle callbacks in async query notifier family $queryKey');
     // Refetch when app comes to foreground (if enabled and data is stale)
     if (options.refetchOnAppFocus) {
       _lifecycleManager.addOnResumeCallback(_onAppResumed);
@@ -515,6 +529,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
 
   /// Set up window focus callbacks
   void _setupWindowFocusCallbacks() {
+    debugPrint('Setting up window focus callbacks in async query notifier family $queryKey');
     // Refetch when window gains focus (if enabled and data is stale)
     if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
       _windowFocusManager.addOnFocusCallback(_onWindowFocused);
@@ -523,6 +538,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
 
   /// Schedule automatic refetching
   void _scheduleRefetch(P arg) {
+    debugPrint('Scheduling automatic refetching in async query notifier family $queryKey');
     final interval = options.refetchInterval;
     if (interval != null && !_isRefetchPaused) {
       _refetchTimer?.cancel();
@@ -536,6 +552,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
 
   /// Callback for app resumed
   void _onAppResumed() {
+    debugPrint('App resumed in async query notifier family $queryKey');
     // Resume refetching and check if we need to refetch stale data
     _isRefetchPaused = false;
 
@@ -549,12 +566,14 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
 
   /// Callback for app paused
   void _onAppPaused() {
+    debugPrint('App paused in async query notifier family $queryKey');
     // Mark refetching as paused
     _isRefetchPaused = true;
   }
 
   /// Callback for window focused
   void _onWindowFocused() {
+    debugPrint('Window focused in async query notifier family $queryKey');
     if (options.enabled && !_isRefetchPaused) {
       final cachedEntry = _getCachedEntry('$queryKey-$arg');
       if (cachedEntry != null && cachedEntry.isStale) {
@@ -690,6 +709,7 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
 
   @override
   FutureOr<T> build() async {
+    debugPrint('Building async query notifier auto dispose with cached data, $queryKey');
     _isDisposed = false;
 
     if (!_isInitialized) {
@@ -743,7 +763,7 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
     if (!options.enabled) {
       throw StateError('Query is disabled and no cached data available');
     }
-
+    debugPrint('Fetching data in async query notifier auto dispose with cached data, $queryKey');
     return await _performFetch();
   }
 
@@ -753,6 +773,7 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
 
   Future<T> _performFetch() async {
     try {
+      debugPrint('Performing fetch in async query notifier auto dispose with cached data, $queryKey');
       final data = await queryFn(ref);
       final now = DateTime.now();
 
@@ -781,6 +802,7 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
 
   Future<void> _backgroundRefetch() async {
     try {
+      debugPrint('Background refetching in async query notifier auto dispose with cached data, $queryKey');
       final data = await _performFetch();
       _safeState(AsyncValue.data(data));
     } catch (error, stackTrace) {
@@ -789,6 +811,7 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
   }
 
   Future<void> refetch({bool background = false}) async {
+    debugPrint('Refetching in async query notifier auto dispose with cached data, $queryKey');
     if (background) {
       return _backgroundRefetch();
     }
@@ -806,7 +829,8 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
 
   void _setupCacheListener() {
     _cache.addListener<T>(queryKey, (entry) {
-      if (entry?.hasData ?? false) {
+      debugPrint('Cache listener called for key $queryKey in async query notifier auto dispose');
+      if ((entry?.hasData ?? false) && !(state.hasValue && entry!.data == state.value)) {
         _safeState(AsyncValue.data(entry!.data as T));
       } else if (entry == null) {
         if (options.onCacheEvicted != null) {
@@ -819,6 +843,7 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
   }
 
   void _setupLifecycleCallbacks() {
+    debugPrint('Setting up lifecycle callbacks in async query notifier auto dispose with cached data, $queryKey');
     if (options.refetchOnAppFocus) {
       _lifecycleManager.addOnResumeCallback(_onAppResumed);
     }
@@ -828,12 +853,14 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
   }
 
   void _setupWindowFocusCallbacks() {
+    debugPrint('Setting up window focus callbacks in async query notifier auto dispose with cached data, $queryKey');
     if (options.refetchOnWindowFocus && _windowFocusManager.isSupported) {
       _windowFocusManager.addOnFocusCallback(_onWindowFocused);
     }
   }
 
   void _scheduleRefetch() {
+    debugPrint('Scheduling automatic refetching in async query notifier auto dispose with cached data, $queryKey');
     final interval = options.refetchInterval;
     if (interval != null && !_isRefetchPaused) {
       _refetchTimer?.cancel();
@@ -846,6 +873,7 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
   }
 
   void _onAppResumed() {
+    debugPrint('App resumed in async query notifier auto dispose with cached data, $queryKey');
     _isRefetchPaused = false;
     if (options.enabled) {
       final cachedEntry = _getCachedEntry();
@@ -855,9 +883,13 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
     }
   }
 
-  void _onAppPaused() => _isRefetchPaused = true;
+  void _onAppPaused() {
+    debugPrint('App paused in async query notifier auto dispose with cached data, $queryKey');
+    _isRefetchPaused = true;
+  }
 
   void _onWindowFocused() {
+    debugPrint('Window focused in async query notifier auto dispose with cached data, $queryKey');
     if (options.enabled && !_isRefetchPaused) {
       final cachedEntry = _getCachedEntry();
       if (cachedEntry != null && cachedEntry.isStale) {
@@ -1008,6 +1040,7 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P>
   @override
   FutureOr<T> build(P arg) async {
     final paramKey = '$queryKey-$arg';
+    debugPrint('Building async query notifier family auto dispose with cached data, $paramKey');
     _isDisposed = false;
 
     if (!_isInitialized) {
@@ -1125,7 +1158,7 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P>
 
   void _setupCacheListener(String key) {
     _cache.addListener<T>(key, (entry) {
-      if (entry?.hasData ?? false) {
+      if ((entry?.hasData ?? false) && !(state.hasValue && entry!.data == state.value)) {
         _safeState(AsyncValue.data(entry!.data as T));
       } else if (entry == null) {
         if (options.onCacheEvicted != null) {

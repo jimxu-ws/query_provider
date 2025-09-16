@@ -37,6 +37,7 @@ class QueryNotifier<T> extends Notifier<QueryState<T>> with QueryClientMixin {
 
   @override
   QueryState<T> build() {
+    debugPrint('Building modern query notifier with cached data, $queryKey');
     if (!_isInitialized) {
       _isInitialized = true;
       _isDisposed = false;
@@ -65,6 +66,7 @@ class QueryNotifier<T> extends Notifier<QueryState<T>> with QueryClientMixin {
     }
     
     if (options.enabled && options.refetchOnMount) {
+      debugPrint('Refetching on mount in modern query notifier with cached data, $queryKey');
       Future.microtask(_fetch);
     }
 
@@ -102,12 +104,13 @@ class QueryNotifier<T> extends Notifier<QueryState<T>> with QueryClientMixin {
     }
 
     if (options.keepPreviousData && state.hasData) {
-      debugPrint('Using state data in modern query notifier for key $queryKey');
+      debugPrint('Refetching with state data in modern query notifier for key $queryKey');
       _safeState(QueryRefetching(state.data as T, fetchedAt: cachedEntry?.fetchedAt));
     } else if (options.keepPreviousData && cachedEntry != null && cachedEntry.hasData) {
-      debugPrint('Using stale cached data in modern query notifier for key $queryKey');
+      debugPrint('Refetching with stale cached data in modern query notifier for key $queryKey');
       _safeState(QueryRefetching(cachedEntry.data as T, fetchedAt: cachedEntry.fetchedAt));
     } else {
+      debugPrint('Loading in modern query notifier for key $queryKey');
       _safeState(const QueryLoading());
     }
 
@@ -164,6 +167,7 @@ class QueryNotifier<T> extends Notifier<QueryState<T>> with QueryClientMixin {
   }
 
   void _scheduleRefetch() {
+    debugPrint('Scheduling automatic refetching in modern query notifier with cached data, $queryKey');
     _refetchTimer?.cancel();
     if (options.refetchInterval != null) {
       _refetchTimer = Timer.periodic(options.refetchInterval!, (_) {
@@ -221,14 +225,20 @@ class QueryNotifier<T> extends Notifier<QueryState<T>> with QueryClientMixin {
   }
 
   QueryCacheEntry<T>? _getCachedEntry() => _cache.get<T>(queryKey);
-  void _setCachedEntry(QueryCacheEntry<T> entry) => _cache.set(queryKey, entry);
+  void _setCachedEntry(QueryCacheEntry<T> entry) {
+    _cache.set(queryKey, entry);
+    debugPrint('Setting cached entry for key $queryKey in modern query notifier, change state to ${state.runtimeType}');
+  }
   void _clearCache() => _cache.remove(queryKey);
 
   void _setupCacheListener() {
+    debugPrint('Setting up cache listener in modern query notifier with cached data, $queryKey');
     _cache.addListener<T>(queryKey, (entry) {
-      if (entry?.hasData ?? false) {
+      if ((entry?.hasData ?? false) && !(state.hasData && entry!.data == state.data)) {
+        debugPrint('Cache data changed for key $queryKey in modern query notifier, change state to ${state.runtimeType}');
         _safeState(QuerySuccess(entry!.data as T, fetchedAt: entry.fetchedAt));
       } else if (entry == null) {
+        debugPrint('Cache entry removed for key $queryKey in modern query notifier, change state to ${state.runtimeType}');
         if (options.onCacheEvicted != null) {
           options.onCacheEvicted!(queryKey);
         } else if (_isDisposed) {
@@ -267,6 +277,7 @@ class QueryNotifierFamily<T, P> extends FamilyNotifier<QueryState<T>, P> with Qu
   @override
   QueryState<T> build(P arg) {
     final paramKey = '$queryKey-$arg';
+    debugPrint('Building modern query notifier family with cached data, $paramKey');
     
     if (!_isInitialized) {
       _isInitialized = true;
@@ -296,6 +307,7 @@ class QueryNotifierFamily<T, P> extends FamilyNotifier<QueryState<T>, P> with Qu
     }
     
     if (options.enabled && options.refetchOnMount) {
+      debugPrint('Refetching on mount in modern query notifier family with cached data, $paramKey');
       Future.microtask(() => _fetch(arg));
     }
 
@@ -303,7 +315,7 @@ class QueryNotifierFamily<T, P> extends FamilyNotifier<QueryState<T>, P> with Qu
       _scheduleRefetch(arg);
     }
 
-    // Check cache first
+    // Check cache firs
     final cachedEntry = _getCachedEntry(paramKey);
     if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
       return QuerySuccess(cachedEntry.data as T, fetchedAt: cachedEntry.fetchedAt);
@@ -392,10 +404,13 @@ class QueryNotifierFamily<T, P> extends FamilyNotifier<QueryState<T>, P> with Qu
   void _clearCache(String key) => _cache.remove(key);
 
   void _setupCacheListener(String key) {
+    debugPrint('Setting up cache listener in modern query notifier family with cached data, $key');
     _cache.addListener<T>(key, (entry) {
-      if (entry?.hasData ?? false) {
+      if ((entry?.hasData ?? false) && !(state.hasData && entry!.data == state.data)) {
+        debugPrint('Cache data changed for key $key in modern query notifier family $key');
         _safeState(QuerySuccess(entry!.data as T, fetchedAt: entry.fetchedAt));
       } else if (entry == null) {
+        debugPrint('Cache entry removed for key $key in modern query notifier family $key');
         if (options.onCacheEvicted != null) {
           options.onCacheEvicted!(key);
         } else if (!_isDisposed) {
@@ -404,6 +419,7 @@ class QueryNotifierFamily<T, P> extends FamilyNotifier<QueryState<T>, P> with Qu
           _safeState(const QueryIdle());
         }
       }
+      debugPrint('Cache listener called for key $key in modern query notifier family, change state to ${state.runtimeType}');
     });
   }
 
@@ -592,7 +608,7 @@ class QueryNotifierAutoDispose<T> extends AutoDisposeNotifier<QueryState<T>> wit
 
   void _setupCacheListener() {
     _cache.addListener<T>(queryKey, (entry) {
-      if (entry?.hasData ?? false) {
+      if ((entry?.hasData ?? false) && !(state.hasData && entry!.data == state.data)) {
         _safeState(QuerySuccess(entry!.data as T, fetchedAt: entry.fetchedAt));
       } else if (entry == null && !_isDisposed) {
         if (options.onCacheEvicted != null) {
@@ -787,7 +803,7 @@ class QueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyNotifier<Que
 
   void _setupCacheListener(String key) {
     _cache.addListener<T>(key, (entry) {
-      if (entry?.hasData ?? false) {
+      if ((entry?.hasData ?? false) && !(state.hasData && entry!.data == state.data)) {
         _safeState(QuerySuccess(entry!.data as T, fetchedAt: entry.fetchedAt));
       } else if (entry == null && !_isDisposed) {
         if (options.onCacheEvicted != null) {

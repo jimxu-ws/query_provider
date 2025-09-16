@@ -192,6 +192,7 @@ class QueryCache {
 
     // Check if entry should be evicted
     if (entry.shouldEvict) {
+      debugPrint('Evicting entry for key $key in query cache');
       _cache.remove(key);
       _evictionCount++;
       _emitEvent(QueryCacheEventType.evict, key, entry);
@@ -490,6 +491,7 @@ class QueryCache {
 
   /// Emit cache event
   void _emitEvent(QueryCacheEventType type, String key, [QueryCacheEntry<dynamic>? entry]) {
+    debugPrint('Emitting cache event for key $key in query cache, type: $type');
     onEvent?.call(QueryCacheEvent(
       type: type,
       key: key,
