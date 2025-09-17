@@ -84,7 +84,9 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
       if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
         // Return cached data immediately, optionally trigger background refresh
         if (options.refetchOnMount) {
-          Future.microtask(() => _backgroundRefetch());
+          unawaited(Future.microtask(() => _backgroundRefetch().catchError((error) {
+            debugPrint('Error in background refetch: $error');
+          })));
         }
         debugPrint('Returning cached data in async query notifier');
         return cachedEntry.data as T;
@@ -93,7 +95,9 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
       if (options.keepPreviousData &&
           ((!_isDisposed && state.hasValue) ||
               (cachedEntry != null && cachedEntry.hasData))) {
-        Future.microtask(() => _backgroundRefetch());
+        unawaited(Future.microtask(() => _backgroundRefetch().catchError((error) {
+          debugPrint('Error in background refetch: $error');
+        })));
 
         debugPrint('Keeping previous data in async query notifier');
         return (!_isDisposed && state.hasValue)
@@ -745,7 +749,9 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
       final cachedEntry = _getCachedEntry();
       if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
         if (options.refetchOnMount) {
-          Future.microtask(() => _backgroundRefetch());
+          unawaited(Future.microtask(() => _backgroundRefetch().catchError((error) {
+            debugPrint('Error in background refetch: $error');
+          })));
         }
         return cachedEntry.data as T;
       }
@@ -753,7 +759,9 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
       if (options.keepPreviousData &&
           ((!_isDisposed && state.hasValue) ||
               (cachedEntry != null && cachedEntry.hasData))) {
-        Future.microtask(() => _backgroundRefetch());
+        unawaited(Future.microtask(() => _backgroundRefetch().catchError((error) {
+          debugPrint('Error in background refetch: $error');
+        })));
         return (!_isDisposed && state.hasValue)
             ? state.value as T
             : cachedEntry?.data as T;

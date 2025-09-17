@@ -743,7 +743,7 @@ class AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeAs
       final nextPage = await queryFn(ref, nextPageParam);
       final newData = InfiniteQueryData<T>(
         pages: [...currentData.pages, nextPage],
-        hasNextPage: options.getNextPageParam?.call(nextPage, [...currentData.pages, nextPage]) != null,
+        hasNextPage: options.getNextPageParam.call(nextPage, [...currentData.pages, nextPage]) != null,
         hasPreviousPage: currentData.hasPreviousPage,
         fetchedAt: DateTime.now(),
       );
@@ -779,7 +779,7 @@ class AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeAs
   void _setupCacheListener() {
     _cache.addListener<InfiniteQueryData<T>>(queryKey, (entry) {
       if (entry?.hasData ?? false) {
-        _safeState(AsyncValue.data(entry!.data as InfiniteQueryData<T>));
+        _safeState(AsyncValue.data(entry!.data!));
       } else if (entry == null && !_isDisposed) {
         if (options.onCacheEvicted != null) {
           options.onCacheEvicted!(queryKey);
