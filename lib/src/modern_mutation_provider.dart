@@ -550,6 +550,12 @@ extension WidgetRefReadMutationResult on WidgetRef {
     );
   }
 
+///
+/// ref.readUpdateMutationResult(saveTeamMembersMutationProvider, (
+///   locationId: locationId,
+///   date: date
+/// )).mutate(_teamMemberNotifier.value);
+///
   MutationResult<TData, TVariables>
       readUpdateMutationResult<TData, TVariables, TParam>(
           NotifierProviderFamily<
