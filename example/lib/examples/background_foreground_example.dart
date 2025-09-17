@@ -283,9 +283,9 @@ class _BackgroundForegroundExampleState extends ConsumerState<BackgroundForegrou
                   color: isInForeground ? Colors.green : Colors.orange,
                 ),
                 const SizedBox(width: 8),
-                Text(
+                const Text(
                   'App Lifecycle Status',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),

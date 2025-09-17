@@ -14,7 +14,7 @@ class ServerDataService {
       'server_time': DateTime.now().toIso8601String(),
       'request_count': _counter,
       'status': 'online',
-      'load': (50 + (_counter * 7) % 50).toString() + '%',
+      'load': '${50 + (_counter * 7) % 50}%',
     };
   }
   
