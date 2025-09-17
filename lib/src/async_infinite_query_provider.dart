@@ -121,6 +121,9 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
     // Check cache first
     final cachedEntry = _getCachedEntry();
     if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
+      if (options.refetchOnMount) {
+          unawaited(Future.microtask(_fetchFirstPageInBackground));
+        }
       debugPrint('Using cached data in async infinite query notifier for key $queryKey');
       final cachedData = cachedEntry.data!;
       return cachedData;
@@ -659,14 +662,18 @@ class AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeAs
       final cachedEntry = _getCachedEntry();
       if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
         if (options.refetchOnMount) {
-          Future.microtask(() => _backgroundRefetch());
+          unawaited(Future.microtask(() => _backgroundRefetch().catchError((error) {
+            debugPrint('Error in background refetch: $error');
+          })));
         }
-        return cachedEntry.data as InfiniteQueryData<T>;
+        return cachedEntry.data!;
       }
 
       if (options.keepPreviousData && ((!_isDisposed && state.hasValue) || (cachedEntry != null && cachedEntry.hasData))) {
-        Future.microtask(() => _backgroundRefetch());
-        return (!_isDisposed && state.hasValue) ? state.value! : cachedEntry?.data as InfiniteQueryData<T>;
+        unawaited(Future.microtask(() => _backgroundRefetch().catchError((error) {
+          debugPrint('Error in background refetch: $error');
+        })));
+        return (!_isDisposed && state.hasValue) ? state.value! : cachedEntry!.data!;
       }
     }
 
