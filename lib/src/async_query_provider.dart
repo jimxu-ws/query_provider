@@ -377,24 +377,12 @@ mixin BaseQueryFamilyMixin<T, P> {
   }
 
   /// Public method to refetch data
-  Future<void> refetch(P arg, {bool background = false}) async {
-    debugPrint('Refetching in query notifier family $queryKey');
-    if (background) {
-      return backgroundRefetch(arg);
-    }
-    safeStateUpdate(const AsyncValue.loading());
-    try {
-      final data = await performFetch(arg);
-      safeStateUpdate(AsyncValue.data(data));
-    } catch (error, stackTrace) {
-      safeStateUpdate(AsyncValue.error(error, stackTrace));
-    }
-  }
+  Future<void> refetch({bool background = false});
 
   /// Force refresh (ignore cache)
   Future<void> refresh(P arg) async {
     invalidateCache(getParamKey(arg));
-    await refetch(arg);
+    await refetch();
   }
 
   /// Helper methods for cache operations
@@ -660,6 +648,23 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
 
   @override
   T? get getCurrentValue => state.value;
+
+  /// Public method to refetch data
+  @override
+  Future<void> refetch({bool background = false}) async {
+    debugPrint('Refetching in query notifier family $queryKey');
+    if (background) {
+      return backgroundRefetch(arg);
+    }
+    safeStateUpdate(const AsyncValue.loading());
+    try {
+      final data = await performFetch(arg);
+      safeStateUpdate(AsyncValue.data(data));
+    } catch (error, stackTrace) {
+      safeStateUpdate(AsyncValue.error(error, stackTrace));
+    }
+  }
+
 }
 
 /// Auto-dispose AsyncNotifier
@@ -803,6 +808,22 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P>
 
   @override
   T? get getCurrentValue => state.value;
+
+  /// Public method to refetch data
+  @override
+  Future<void> refetch({bool background = false}) async {
+    debugPrint('Refetching in query notifier family $queryKey');
+    if (background) {
+      return backgroundRefetch(arg);
+    }
+    safeStateUpdate(const AsyncValue.loading());
+    try {
+      final data = await performFetch(arg);
+      safeStateUpdate(AsyncValue.data(data));
+    } catch (error, stackTrace) {
+      safeStateUpdate(AsyncValue.error(error, stackTrace));
+    }
+  }
 }
 
 // ========================================
