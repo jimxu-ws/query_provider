@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'app_lifecycle_manager_test.dart' as app_lifecycle_manager_test;
+import 'mutation_provider_test.dart' as mutation_provider_test;
+import 'query_cache_test.dart' as query_cache_test;
+import 'query_options_test.dart' as query_options_test;
+import 'query_provider_test.dart' as query_provider_test;
 // Import all test files
 import 'query_state_test.dart' as query_state_test;
-import 'query_options_test.dart' as query_options_test;
-import 'query_cache_test.dart' as query_cache_test;
-import 'app_lifecycle_manager_test.dart' as app_lifecycle_manager_test;
 import 'window_focus_manager_test.dart' as window_focus_manager_test;
-import 'query_provider_test.dart' as query_provider_test;
-import 'mutation_provider_test.dart' as mutation_provider_test;
 
 void main() {
   group('Query Provider Library Tests', () {

@@ -74,6 +74,7 @@ final class QueryLoading<T> extends QueryState<T> {
 final class QuerySuccess<T> extends QueryState<T> {
   const QuerySuccess(this.data, {this.fetchedAt});
 
+  @override
   final T data;
   final DateTime? fetchedAt;
 
@@ -95,7 +96,9 @@ final class QuerySuccess<T> extends QueryState<T> {
 final class QueryError<T> extends QueryState<T> {
   const QueryError(this.error, {this.stackTrace});
 
+  @override
   final Object error;
+  @override
   final StackTrace? stackTrace;
 
   @override
@@ -153,13 +156,13 @@ sealed class MutationState<T> {
 
   /// Returns the data if available, null otherwise
   T? get data => switch (this) {
-        MutationSuccess<T> success => success.data,
+        final MutationSuccess<T> success => success.data,
         _ => null,
       };
 
   /// Returns the error if available, null otherwise
   Object? get error => switch (this) {
-        MutationError<T> error => error.error,
+        final MutationError<T> error => error.error,
         _ => null,
       };
 }
@@ -198,6 +201,7 @@ final class MutationLoading<T> extends MutationState<T> {
 final class MutationSuccess<T> extends MutationState<T> {
   const MutationSuccess(this.data);
 
+  @override
   final T data;
 
   @override
@@ -216,6 +220,7 @@ final class MutationSuccess<T> extends MutationState<T> {
 final class MutationError<T> extends MutationState<T> {
   const MutationError(this.error, {this.stackTrace});
 
+  @override
   final Object error;
   final StackTrace? stackTrace;
 

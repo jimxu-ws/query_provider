@@ -113,7 +113,7 @@ class ApiService {
     _maybeThrow();
 
     final startIndex = (page - 1) * limit;
-    final totalPosts = 100; // Simulate 100 total posts
+    const totalPosts = 100; // Simulate 100 total posts
     
     final posts = List.generate(
       limit,
@@ -161,7 +161,7 @@ class ApiService {
     _maybeThrow();
 
     final startIndex = (page - 1) * limit;
-    final totalUserPosts = 25; // Simulate 25 total posts per user
+    const totalUserPosts = 25; // Simulate 25 total posts per user
     
     final posts = List.generate(
       limit,

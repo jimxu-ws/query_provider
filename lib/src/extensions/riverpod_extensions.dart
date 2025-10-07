@@ -116,11 +116,6 @@ class QueryUtils {
 /// This class encapsulates all caching logic and provides a clean API for data fetching
 /// with automatic cache management, error handling, and refresh capabilities.
 class CachedDataFetcher<T> {
-  final Ref ref;
-  final String cacheKey;
-  final Future<T> Function() fetchFn;
-  final Duration? cacheDuration;
-  final bool cacheErrors;
 
   CachedDataFetcher({
     required this.ref,
@@ -129,6 +124,11 @@ class CachedDataFetcher<T> {
     this.cacheDuration,
     this.cacheErrors = false,
   }) : cacheKey = cacheKey ?? _generateCacheKey<T>(fetchFn);
+  final Ref ref;
+  final String cacheKey;
+  final Future<T> Function() fetchFn;
+  final Duration? cacheDuration;
+  final bool cacheErrors;
 
   /// Generate automatic cache key based on function and type
   static String _generateCacheKey<T>(Future<T> Function() fetchFn) {
@@ -209,6 +209,22 @@ class CachedDataFetcher<T> {
 /// - Supports window focus and background refresh
 /// - Handles lifecycle events automatically
 class SmartCachedFetcher<T> {
+
+  SmartCachedFetcher({
+    required this.ref,
+    required this.fetchFn,
+    required this.onData,
+    required this.onLoading,
+    required this.onError,
+    String? cacheKey,
+    this.staleTime = const Duration(minutes: 5),
+    this.cacheTime = const Duration(minutes: 30),
+    this.enableBackgroundRefresh = true,
+    this.enableWindowFocusRefresh = true,
+    this.cacheErrors = false,
+  }) : cacheKey = cacheKey ?? _generateCacheKey<T>(fetchFn) {
+    _setupLifecycleListeners();
+  }
   final dynamic ref; // Accept both Ref and WidgetRef
   final String cacheKey;
   final Future<T> Function() fetchFn;
@@ -243,22 +259,6 @@ class SmartCachedFetcher<T> {
     } else if (ref is WidgetRef) {
       (ref as WidgetRef).removeQueries(pattern);
     }
-  }
-
-  SmartCachedFetcher({
-    required this.ref,
-    required this.fetchFn,
-    required this.onData,
-    required this.onLoading,
-    required this.onError,
-    String? cacheKey,
-    this.staleTime = const Duration(minutes: 5),
-    this.cacheTime = const Duration(minutes: 30),
-    this.enableBackgroundRefresh = true,
-    this.enableWindowFocusRefresh = true,
-    this.cacheErrors = false,
-  }) : cacheKey = cacheKey ?? _generateCacheKey<T>(fetchFn) {
-    _setupLifecycleListeners();
   }
 
   /// Generate automatic cache key based on function and type

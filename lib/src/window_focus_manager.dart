@@ -6,16 +6,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Manages window focus detection for desktop and web platforms
 class WindowFocusManager extends ChangeNotifier {
+  
+  WindowFocusManager._() {
+    _initialize();
+  }
   static WindowFocusManager? _instance;
   
   /// Singleton instance
   static WindowFocusManager get instance {
     _instance ??= WindowFocusManager._();
     return _instance!;
-  }
-  
-  WindowFocusManager._() {
-    _initialize();
   }
   
   bool _windowHasFocus = true;

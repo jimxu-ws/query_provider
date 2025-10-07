@@ -71,7 +71,7 @@ void main() {
       final provider = queryProvider<String>(
         name: 'test-query',
         queryFn: (ref) => MockApiService.fetchData(),
-        options: const QueryOptions(refetchOnMount: true),
+        options: const QueryOptions(),
       );
       
       // Listen to trigger the provider
@@ -110,7 +110,7 @@ void main() {
       final provider = queryProvider<String>(
         name: 'test-query',
         queryFn: (ref) => MockApiService.fetchData(),
-        options: const QueryOptions(refetchOnMount: true),
+        options: const QueryOptions(),
       );
       
       final states = <QueryState<String>>[];
@@ -136,7 +136,7 @@ void main() {
       final provider = queryProvider<String>(
         name: 'test-query',
         queryFn: (ref) => MockApiService.fetchData(),
-        options: const QueryOptions(refetchOnMount: true),
+        options: const QueryOptions(),
       );
       
       // Listen to trigger the provider
@@ -157,7 +157,6 @@ void main() {
         name: 'test-query',
         queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(
-          refetchOnMount: true,
           retry: 2,
           retryDelay: Duration(milliseconds: 50),
         ),
@@ -194,7 +193,6 @@ void main() {
         name: 'test-query',
         queryFn: (ref) => flakyFetch(),
         options: const QueryOptions(
-          refetchOnMount: true,
           retry: 3,
           retryDelay: Duration(milliseconds: 10),
         ),
@@ -216,7 +214,7 @@ void main() {
       final provider = queryProvider<String>(
         name: 'test-query',
         queryFn: (ref) => MockApiService.fetchData(),
-        options: const QueryOptions(refetchOnMount: true),
+        options: const QueryOptions(),
       );
       
       // Listen to trigger the provider
@@ -241,7 +239,7 @@ void main() {
       final provider = queryProvider<String>(
         name: 'test-query',
         queryFn: (ref) => MockApiService.fetchData(),
-        options: const QueryOptions(refetchOnMount: true),
+        options: const QueryOptions(),
       );
       
       // Listen to trigger the provider
@@ -288,7 +286,7 @@ void main() {
       final provider = queryProvider<String>(
         name: 'test-query',
         queryFn: (ref) => MockApiService.fetchData(),
-        options: const QueryOptions(refetchOnMount: true),
+        options: const QueryOptions(),
       );
       
       // Listen to trigger the provider
@@ -306,7 +304,6 @@ void main() {
         name: 'test-query',
         queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(
-          refetchOnMount: true,
           enabled: false,
         ),
       );
@@ -327,7 +324,6 @@ void main() {
         name: 'test-query',
         queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(
-          refetchOnMount: true,
           staleTime: Duration(minutes: 5),
         ),
       );
@@ -357,7 +353,6 @@ void main() {
         name: 'test-query',
         queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(
-          refetchOnMount: true,
           keepPreviousData: true,
           staleTime: Duration.zero, // Always stale
         ),
@@ -389,7 +384,6 @@ void main() {
         name: 'test-query',
         queryFn: (ref) => MockApiService.fetchData(),
         options: QueryOptions(
-          refetchOnMount: true,
           onSuccess: (data) {
             successData = data;
           },
@@ -415,7 +409,6 @@ void main() {
         name: 'test-query',
         queryFn: (ref) => MockApiService.fetchData(),
         options: QueryOptions(
-          refetchOnMount: true,
           retry: 0, // No retries
           onError: (error, stackTrace) {
             errorReceived = error;
@@ -453,7 +446,7 @@ void main() {
       final provider = queryProviderWithParam<String, String>(
         name: 'user-query',
         queryFn: (ref, param) => MockApiService.fetchDataWithParam(param),
-        options: const QueryOptions(refetchOnMount: true),
+        options: const QueryOptions(),
       );
       
       // Listen to different parameters
@@ -477,7 +470,7 @@ void main() {
       final provider = queryProviderWithParam<String, String>(
         name: 'user-query',
         queryFn: (ref, param) => MockApiService.fetchDataWithParam(param),
-        options: const QueryOptions(refetchOnMount: true),
+        options: const QueryOptions(),
       );
       
       // Listen to same parameter twice
@@ -494,7 +487,7 @@ void main() {
       final provider = queryProviderWithParam<String, int>(
         name: 'id-query',
         queryFn: (ref, id) => MockApiService.fetchDataWithParam(id.toString()),
-        options: const QueryOptions(refetchOnMount: true),
+        options: const QueryOptions(),
       );
       
       // Listen to different IDs
@@ -533,7 +526,7 @@ void main() {
       final provider = queryProviderWithParam<String, String>(
         name: 'fixed-query',
         queryFn: (ref, param) => MockApiService.fetchDataWithParam(param),
-        options: const QueryOptions(refetchOnMount: true),
+        options: const QueryOptions(),
       );
       
       // Listen to trigger the provider
@@ -554,7 +547,7 @@ void main() {
       final provider = queryProviderWithParam<String, String>(
         name: 'param-query',
         queryFn: (ref, param) => MockApiService.fetchDataWithParam(param),
-        options: const QueryOptions(refetchOnMount: true),
+        options: const QueryOptions(),
       );
       
       // Listen to trigger the provider
@@ -588,9 +581,7 @@ void main() {
         name: 'lifecycle-query',
         queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(
-          refetchOnMount: true,
           refetchOnAppFocus: true,
-          pauseRefetchInBackground: true,
         ),
       );
       
@@ -614,7 +605,7 @@ void main() {
         final staleEntry = QueryCacheEntry<String>(
           data: entry.data,
           fetchedAt: DateTime.now().subtract(const Duration(minutes: 10)),
-          options: const QueryOptions(staleTime: Duration(minutes: 5)),
+          options: const QueryOptions(),
         );
         cache.set('lifecycle-query', staleEntry);
       }

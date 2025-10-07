@@ -228,7 +228,7 @@ class UnifiedPostsNotifier extends Notifier<PostsState> {
       await ApiService.deletePost(postId);
 
       // Update success state
-      state = state.copyWith(deleteMutationState: MutationSuccess(null));
+      state = state.copyWith(deleteMutationState: const MutationSuccess(null));
     } catch (error, stackTrace) {
       // Rollback optimistic update
       if (originalPost != null && originalPageIndex != null && originalPostIndex != null) {

@@ -138,6 +138,7 @@ final class InfiniteQuerySuccess<T> extends InfiniteQueryState<T> {
     this.fetchedAt,
   });
 
+  @override
   final List<T> pages;
   final bool hasNextPage;
   final bool hasPreviousPage;
@@ -184,6 +185,7 @@ final class InfiniteQueryRefetching<T> extends InfiniteQueryState<T> {
     this.fetchedAt,
   });
 
+  @override
   final List<T> pages;
   final bool hasNextPage;
   final bool hasPreviousPage;
@@ -225,6 +227,7 @@ final class InfiniteQueryRefetching<T> extends InfiniteQueryState<T> {
 final class InfiniteQueryError<T> extends InfiniteQueryState<T> {
   const InfiniteQueryError(this.error, {this.stackTrace});
 
+  @override
   final Object error;
   final StackTrace? stackTrace;
 
@@ -251,6 +254,7 @@ final class InfiniteQueryFetchingNextPage<T> extends InfiniteQueryState<T> {
     this.fetchedAt,
   });
 
+  @override
   final List<T> pages;
   final bool hasNextPage;
   final bool hasPreviousPage;
@@ -281,6 +285,7 @@ final class InfiniteQueryFetchingPreviousPage<T> extends InfiniteQueryState<T> {
     this.fetchedAt,
   });
 
+  @override
   final List<T> pages;
   final bool hasNextPage;
   final bool hasPreviousPage;
@@ -1659,9 +1664,9 @@ class InfiniteQueryResult<T> {
 
   /// Returns true if there are previous pages to fetch
   bool get hasPreviousPage => switch (state) {
-        InfiniteQuerySuccess<T> success => success.hasPreviousPage,
-        InfiniteQueryFetchingNextPage<T> fetching => fetching.hasPreviousPage,
-        InfiniteQueryFetchingPreviousPage<T> fetching => fetching.hasPreviousPage,
+        final InfiniteQuerySuccess<T> success => success.hasPreviousPage,
+        final InfiniteQueryFetchingNextPage<T> fetching => fetching.hasPreviousPage,
+        final InfiniteQueryFetchingPreviousPage<T> fetching => fetching.hasPreviousPage,
         _ => false,
       };
 }

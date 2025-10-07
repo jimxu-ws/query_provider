@@ -57,11 +57,11 @@ class QueryCacheEntry<T> {
 
   /// Create a stale copy of the entry
     QueryCacheEntry<T> copyAsStale() => QueryCacheEntry<T>(
-      data: this.data,
-      fetchedAt: this.fetchedAt.subtract(this.options.staleTime + const Duration(minutes: 1)),
-      options: this.options,
-      error: this.error,
-      stackTrace: this.stackTrace,
+      data: data,
+      fetchedAt: fetchedAt.subtract(options.staleTime + const Duration(minutes: 1)),
+      options: options,
+      error: error,
+      stackTrace: stackTrace,
     );
 
   @override
@@ -399,7 +399,6 @@ class QueryCache {
       _emitEvent(
         QueryCacheEventType.evict,
         'cleanup-batch-$cleanedCount',
-        null,
       );
       
       // Schedule next cleanup
@@ -416,7 +415,7 @@ class QueryCache {
 
     // Find the shortest cache time among current entries
     Duration shortestCacheTime = defaultCacheTime;
-    DateTime now = DateTime.now();
+    final DateTime now = DateTime.now();
     DateTime? nextExpiration;
 
     for (final entry in _cache.values) {
@@ -463,7 +462,7 @@ class QueryCache {
   void removeListener<T>(String key, QueryCacheChangeCallback<T> callback) {
     // Note: This won't work perfectly because we're storing wrapped functions
     // For now, use removeAllListeners instead for cleanup
-    if (_listeners[key]?.isEmpty == true) {
+    if (_listeners[key]?.isEmpty ?? false) {
       _listeners.remove(key);
     }
   }

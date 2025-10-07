@@ -116,15 +116,6 @@ SmartMutationResult<T, V> useSmartMutation<T, V>({
 
 /// Result object for smart queries
 class SmartQueryResult<T> {
-  final T? data;
-  final Object? error;
-  final bool isLoading;
-  final bool isFetching;
-  final bool isStale;
-  final bool isCached;
-  final Future<void> Function() refetch;
-  final Future<void> Function() refresh;
-  final void Function() clearCache;
 
   const SmartQueryResult({
     required this.data,
@@ -137,6 +128,15 @@ class SmartQueryResult<T> {
     required this.refresh,
     required this.clearCache,
   });
+  final T? data;
+  final Object? error;
+  final bool isLoading;
+  final bool isFetching;
+  final bool isStale;
+  final bool isCached;
+  final Future<void> Function() refetch;
+  final Future<void> Function() refresh;
+  final void Function() clearCache;
 
   /// Check if query has data
   bool get hasData => data != null;
@@ -153,12 +153,6 @@ class SmartQueryResult<T> {
 
 /// Result object for smart mutations
 class SmartMutationResult<T, V> {
-  final T? data;
-  final Object? error;
-  final bool isLoading;
-  final Future<void> Function(V variables) mutate;
-  final Future<void> Function(V variables) mutateAsync;
-  final void Function() reset;
 
   const SmartMutationResult({
     required this.data,
@@ -168,6 +162,12 @@ class SmartMutationResult<T, V> {
     required this.mutateAsync,
     required this.reset,
   });
+  final T? data;
+  final Object? error;
+  final bool isLoading;
+  final Future<void> Function(V variables) mutate;
+  final Future<void> Function(V variables) mutateAsync;
+  final void Function() reset;
 
   /// Check if mutation has data
   bool get hasData => data != null;
@@ -184,15 +184,6 @@ class SmartMutationResult<T, V> {
 
 /// Internal hook implementation for smart queries
 class _SmartQueryHook<T> extends Hook<SmartQueryResult<T>> {
-  final WidgetRef ref;
-  final Future<T> Function() fetchFn;
-  final String? cacheKey;
-  final Duration staleTime;
-  final Duration cacheTime;
-  final bool enableBackgroundRefresh;
-  final bool enableWindowFocusRefresh;
-  final bool cacheErrors;
-  final bool enabled;
 
   const _SmartQueryHook({
     required this.ref,
@@ -205,6 +196,15 @@ class _SmartQueryHook<T> extends Hook<SmartQueryResult<T>> {
     required this.cacheErrors,
     required this.enabled,
   });
+  final WidgetRef ref;
+  final Future<T> Function() fetchFn;
+  final String? cacheKey;
+  final Duration staleTime;
+  final Duration cacheTime;
+  final bool enableBackgroundRefresh;
+  final bool enableWindowFocusRefresh;
+  final bool cacheErrors;
+  final bool enabled;
 
   @override
   HookState<SmartQueryResult<T>, Hook<SmartQueryResult<T>>> createState() => 
@@ -307,11 +307,6 @@ class _SmartQueryHookState<T> extends HookState<SmartQueryResult<T>, _SmartQuery
 
 /// Internal hook implementation for smart mutations
 class _SmartMutationHook<T, V> extends Hook<SmartMutationResult<T, V>> {
-  final WidgetRef ref;
-  final Future<T> Function(V variables) mutationFn;
-  final void Function(T data, V variables)? onSuccess;
-  final void Function(Object error, V variables)? onError;
-  final Future<void> Function(V variables)? onMutate;
 
   const _SmartMutationHook({
     required this.ref,
@@ -320,6 +315,11 @@ class _SmartMutationHook<T, V> extends Hook<SmartMutationResult<T, V>> {
     required this.onError,
     required this.onMutate,
   });
+  final WidgetRef ref;
+  final Future<T> Function(V variables) mutationFn;
+  final void Function(T data, V variables)? onSuccess;
+  final void Function(Object error, V variables)? onError;
+  final Future<void> Function(V variables)? onMutate;
 
   @override
   HookState<SmartMutationResult<T, V>, Hook<SmartMutationResult<T, V>>> createState() => 

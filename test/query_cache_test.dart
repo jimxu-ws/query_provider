@@ -47,7 +47,7 @@ void main() {
 
     test('should calculate isStale correctly', () {
       final now = DateTime.now();
-      const options = QueryOptions<String>(staleTime: Duration(minutes: 5));
+      const options = QueryOptions<String>();
       
       // Fresh entry
       final freshEntry = QueryCacheEntry<String>(
@@ -68,7 +68,7 @@ void main() {
 
     test('should calculate isExpired correctly', () {
       final now = DateTime.now();
-      const options = QueryOptions<String>(cacheTime: Duration(minutes: 30));
+      const options = QueryOptions<String>();
       
       // Fresh entry
       final freshEntry = QueryCacheEntry<String>(

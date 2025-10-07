@@ -730,7 +730,7 @@ class AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeAs
     try {
       final data = await _performFirstPageFetch();
       _safeState(AsyncValue.data(data));
-    } catch (error, stackTrace) {
+    } catch (error) {
       // Silent failure
     }
   }
@@ -739,7 +739,7 @@ class AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeAs
     if (!state.hasValue) return;
     
     final currentData = state.value!;
-    final nextPageParam = options.getNextPageParam?.call(
+    final nextPageParam = options.getNextPageParam.call(
       currentData.pages.last,
       currentData.pages,
     );
@@ -765,7 +765,7 @@ class AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeAs
       ));
       
       _safeState(AsyncValue.data(newData));
-    } catch (error, stackTrace) {
+    } catch (error) {
       // Keep current data on error
     }
   }

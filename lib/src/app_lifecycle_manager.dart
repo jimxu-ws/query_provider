@@ -5,6 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Manages app lifecycle state and window focus for query refetching
 class AppLifecycleManager extends ChangeNotifier with WidgetsBindingObserver {
+  
+  AppLifecycleManager._() {
+    WidgetsBinding.instance.addObserver(this);
+  }
   static AppLifecycleManager? _instance;
   
   /// Singleton instance
@@ -13,12 +17,8 @@ class AppLifecycleManager extends ChangeNotifier with WidgetsBindingObserver {
     return _instance!;
   }
   
-  AppLifecycleManager._() {
-    WidgetsBinding.instance.addObserver(this);
-  }
-  
   AppLifecycleState _state = AppLifecycleState.resumed;
-  bool _windowHasFocus = true;
+  final bool _windowHasFocus = true;
   final Set<VoidCallback> _onResumeCallbacks = {};
   final Set<VoidCallback> _onPauseCallbacks = {};
   final Set<VoidCallback> _onWindowFocusCallbacks = {};
