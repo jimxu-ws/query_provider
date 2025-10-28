@@ -2,7 +2,27 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'memory_cache.dart';
 import 'query_cache.dart';
+
+
+/// Global cache instance
+QueryCache? _globalCache;
+
+/// Get or create the global cache instance
+QueryCache getGlobalQueryCache() => _globalCache ??= MemoryQueryCache();
+
+/// Set a custom global cache instance
+void setGlobalQueryCache(QueryCache cache) {
+  _globalCache?.dispose();
+  _globalCache = cache;
+}
+
+/// Dispose the global cache
+void disposeGlobalQueryCache() {
+  _globalCache?.dispose();
+  _globalCache = null;
+}
 
 /// A client for managing query cache and global operations
 class QueryClient {

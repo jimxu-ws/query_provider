@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:query_provider/query_provider.dart';
+import 'package:query_provider/src/memory_cache.dart';
 
 void main() {
   group('QueryCacheEntry', () {
@@ -151,7 +152,7 @@ void main() {
     late QueryCache cache;
 
     setUp(() {
-      cache = QueryCache(maxSize: 5);
+      cache = MemoryQueryCache(maxSize: 5);
     });
 
     tearDown(() {
