@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'state_query_provider.dart' show QueryFunctionWithParamsWithRef;
 import 'app_lifecycle_manager.dart';
 import 'query_cache.dart';
 import 'query_client.dart';
 import 'query_options.dart';
+import 'state_query_provider.dart' show QueryFunctionWithParamsWithRef;
 import 'window_focus_manager.dart';
 
 
@@ -85,8 +85,8 @@ class AsyncInfiniteQueryNotifier<T, TPageParam> extends AsyncNotifier<InfiniteQu
 
   // Initialize cache, lifecycle manager, and window focus manager
   final QueryCache _cache = getGlobalQueryCache();
-  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
-  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager();
+  final WindowFocusManager _windowFocusManager = WindowFocusManager();
   bool _isRefetchPaused = false;
   bool _isInitialized = false;
   bool _isDisposed = false;
@@ -619,8 +619,8 @@ class AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeAs
   int _retryCount = 0;
 
   final QueryCache _cache = getGlobalQueryCache();
-  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
-  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager();
+  final WindowFocusManager _windowFocusManager = WindowFocusManager();
   bool _isRefetchPaused = false;
   bool _isInitialized = false;
   bool _isDisposed = false;
@@ -662,7 +662,7 @@ class AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeAs
       final cachedEntry = _getCachedEntry();
       if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
         if (options.refetchOnMount) {
-          unawaited(Future.microtask(() => _backgroundRefetch().catchError((error) {
+          unawaited(Future.microtask(() => _backgroundRefetch().catchError((Object error) {
             debugPrint('Error in background refetch: $error');
           })));
         }
@@ -670,7 +670,7 @@ class AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeAs
       }
 
       if (options.keepPreviousData && ((!_isDisposed && state.hasValue) || (cachedEntry != null && cachedEntry.hasData))) {
-        unawaited(Future.microtask(() => _backgroundRefetch().catchError((error) {
+        unawaited(Future.microtask(() => _backgroundRefetch().catchError((Object error) {
           debugPrint('Error in background refetch: $error');
         })));
         return (!_isDisposed && state.hasValue) ? state.value! : cachedEntry!.data!;
@@ -685,7 +685,9 @@ class AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeAs
   }
 
   void _safeState(AsyncValue<InfiniteQueryData<T>> state) {
-    if(!_isDisposed) this.state = state;
+    if(!_isDisposed) {
+      this.state = state;
+    }
   }
 
   Future<InfiniteQueryData<T>> _performFirstPageFetch() async {
@@ -730,21 +732,25 @@ class AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeAs
     try {
       final data = await _performFirstPageFetch();
       _safeState(AsyncValue.data(data));
-    } catch (error, stackTrace) {
+    } catch (error, _) {
       // Silent failure
     }
   }
 
   Future<void> fetchNextPage() async {
-    if (!state.hasValue) return;
+    if (!state.hasValue) {
+      return;
+    }
     
     final currentData = state.value!;
-    final nextPageParam = options.getNextPageParam?.call(
+    final nextPageParam = options.getNextPageParam.call(
       currentData.pages.last,
       currentData.pages,
     );
     
-    if (nextPageParam == null) return;
+    if (nextPageParam == null) {
+      return;
+    }
 
     try {
       final nextPage = await queryFn(ref, nextPageParam);
@@ -765,7 +771,7 @@ class AsyncInfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeAs
       ));
       
       _safeState(AsyncValue.data(newData));
-    } catch (error, stackTrace) {
+    } catch (error, _) {
       // Keep current data on error
     }
   }

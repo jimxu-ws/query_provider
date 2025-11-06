@@ -9,12 +9,12 @@ void main() {
     late WindowFocusManager manager;
 
     setUp(() {
-      manager = WindowFocusManager.instance;
+      manager = WindowFocusManager();
     });
 
     test('should be a singleton', () {
-      final manager1 = WindowFocusManager.instance;
-      final manager2 = WindowFocusManager.instance;
+      final manager1 = WindowFocusManager();
+      final manager2 = WindowFocusManager();
       
       expect(identical(manager1, manager2), true);
     });
@@ -231,7 +231,7 @@ void main() {
     // through the WindowFocusManager's behavior on desktop platforms
     
     test('should be created and used by WindowFocusManager on supported platforms', () {
-      final manager = WindowFocusManager.instance;
+      final manager = WindowFocusManager();
       
       // The manager should initialize without errors
       expect(manager, isNotNull);

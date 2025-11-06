@@ -12,7 +12,7 @@ class MockApiService {
   static Duration delay = const Duration(milliseconds: 100);
   
   static Future<String> fetchData() async {
-    await Future.delayed(delay);
+    await Future.delayed(delay,()=>null);
     callCount++;
     
     if (shouldFail) {
@@ -23,7 +23,7 @@ class MockApiService {
   }
   
   static Future<String> fetchDataWithParam(String param) async {
-    await Future.delayed(delay);
+    await Future.delayed(delay,()=>null);
     callCount++;
     
     if (shouldFail) {
@@ -78,7 +78,7 @@ void main() {
       container.listen(provider, (previous, next) {});
       
       // Wait for async operation
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       final state = container.read(provider);
       expect(state, isA<QuerySuccess<String>>());
@@ -97,7 +97,7 @@ void main() {
       container.listen(provider, (previous, next) {});
       
       // Wait a bit
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       final state = container.read(provider);
       expect(state, isA<QueryIdle<String>>());
@@ -119,13 +119,13 @@ void main() {
       });
       
       // Wait for loading state
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 50),()=>null);
       
       expect(states.isNotEmpty, true);
       expect(states.first, isA<QueryLoading<String>>());
       
       // Wait for completion
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 200),()=>null);
       
       expect(states.last, isA<QuerySuccess<String>>());
     });
@@ -143,7 +143,7 @@ void main() {
       container.listen(provider, (previous, next) {});
       
       // Wait for async operation
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       final state = container.read(provider);
       expect(state, isA<QueryError<String>>());
@@ -167,7 +167,7 @@ void main() {
       container.listen(provider, (previous, next) {});
       
       // Wait for retries to complete
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 300),()=>null);
       
       // Should have called 3 times (initial + 2 retries)
       expect(MockApiService.callCount, 3);
@@ -180,7 +180,7 @@ void main() {
       var failCount = 0;
       
       Future<String> flakyFetch() async {
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future.delayed(const Duration(milliseconds: 50),()=>null);
         failCount++;
         
         if (failCount <= 2) {
@@ -204,7 +204,7 @@ void main() {
       container.listen(provider, (previous, next) {});
       
       // Wait for retries to complete
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 200),()=>null);
       
       final state = container.read(provider);
       expect(state, isA<QuerySuccess<String>>());
@@ -223,7 +223,7 @@ void main() {
       container.listen(provider, (previous, next) {});
       
       // Wait for initial fetch
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       expect(MockApiService.callCount, 1);
       
@@ -248,7 +248,7 @@ void main() {
       container.listen(provider, (previous, next) {});
       
       // Wait for initial fetch
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       expect(MockApiService.callCount, 1);
       
@@ -295,7 +295,7 @@ void main() {
       container.listen(provider, (previous, next) {});
       
       // Wait for initial fetch
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       final cachedData = container.read(provider.notifier).getCachedData();
       expect(cachedData, 'Mock data 1');
@@ -315,7 +315,7 @@ void main() {
       container.listen(provider, (previous, next) {});
       
       // Wait a bit
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       final state = container.read(provider);
       expect(state, isA<QueryIdle<String>>());
@@ -327,14 +327,13 @@ void main() {
         name: 'test-query',
         queryFn: (ref) => MockApiService.fetchData(),
         options: const QueryOptions(
-          refetchOnMount: true,
-          staleTime: Duration(minutes: 5),
+          staleTime: Duration(minutes: 6),
         ),
       );
       
       // First fetch
       container.listen(provider, (previous, next) {});
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       expect(MockApiService.callCount, 1);
       
@@ -344,7 +343,7 @@ void main() {
       
       // Second fetch should use cache
       container.listen(provider, (previous, next) {});
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 50),()=>null);
       
       final state = container.read(provider);
       expect(state, isA<QuerySuccess<String>>());
@@ -369,7 +368,7 @@ void main() {
       });
       
       // Wait for initial fetch
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       // Trigger refetch
       await container.read(provider.notifier).refetch();
@@ -400,7 +399,7 @@ void main() {
       container.listen(provider, (previous, next) {});
       
       // Wait for fetch
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       expect(successData, 'Mock data 1');
     });
@@ -428,7 +427,7 @@ void main() {
       container.listen(provider, (previous, next) {});
       
       // Wait for fetch
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       expect(errorReceived, isNotNull);
       expect(errorReceived.toString(), contains('Mock API error'));
@@ -461,7 +460,7 @@ void main() {
       container.listen(provider('user2'), (previous, next) {});
       
       // Wait for fetches
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       final state1 = container.read(provider('user1'));
       final state2 = container.read(provider('user2'));
@@ -485,7 +484,7 @@ void main() {
       container.listen(provider('user1'), (previous, next) {});
       
       // Wait for fetch
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       expect(MockApiService.callCount, 1); // Only one call
     });
@@ -502,7 +501,7 @@ void main() {
       container.listen(provider(2), (previous, next) {});
       
       // Wait for fetches
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       final state1 = container.read(provider(1));
       final state2 = container.read(provider(2));
@@ -540,7 +539,7 @@ void main() {
       container.listen(provider(params), (previous, next) {});
       
       // Wait for fetch
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       final state = container.read(provider(params));
       expect(state, isA<QuerySuccess<String>>());
@@ -561,7 +560,7 @@ void main() {
       container.listen(provider(params), (previous, next) {});
       
       // Wait for fetch
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       // Check cache key includes parameters
       final cache = getGlobalQueryCache();
@@ -598,12 +597,12 @@ void main() {
       container.listen(provider, (previous, next) {});
       
       // Wait for initial fetch
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       expect(MockApiService.callCount, 1);
       
       // Simulate app going to background
-      final lifecycleManager = AppLifecycleManager.instance;
+      final lifecycleManager = AppLifecycleManager();
       lifecycleManager.didChangeAppLifecycleState(AppLifecycleState.paused);
       
       // Simulate app coming back to foreground with stale data
@@ -622,7 +621,7 @@ void main() {
       lifecycleManager.didChangeAppLifecycleState(AppLifecycleState.resumed);
       
       // Wait for potential refetch
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 150),()=>null);
       
       // Should have refetched due to stale data
       expect(MockApiService.callCount, 2);

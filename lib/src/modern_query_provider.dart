@@ -29,8 +29,8 @@ class QueryNotifier<T> extends Notifier<QueryState<T>> with QueryClientMixin {
   int _retryCount = 0;
   
   final QueryCache _cache = getGlobalQueryCache();
-  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
-  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager();
+  final WindowFocusManager _windowFocusManager = WindowFocusManager();
   bool _isRefetchPaused = false;
   bool _isInitialized = false;
   bool _isDisposed = false;
@@ -67,7 +67,7 @@ class QueryNotifier<T> extends Notifier<QueryState<T>> with QueryClientMixin {
     
     if (options.enabled && options.refetchOnMount) {
       debugPrint('Refetching on mount in modern query notifier with cached data, $queryKey');
-      Future.microtask(_fetch);
+      unawaited(Future.microtask(_fetch));
     }
 
     if (options.enabled && options.refetchInterval != null) {
@@ -268,8 +268,8 @@ class QueryNotifierFamily<T, P> extends FamilyNotifier<QueryState<T>, P> with Qu
   int _retryCount = 0;
   
   final QueryCache _cache = getGlobalQueryCache();
-  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
-  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager();
+  final WindowFocusManager _windowFocusManager = WindowFocusManager();
   bool _isRefetchPaused = false;
   bool _isInitialized = false;
   bool _isDisposed = false;
@@ -308,7 +308,7 @@ class QueryNotifierFamily<T, P> extends FamilyNotifier<QueryState<T>, P> with Qu
     
     if (options.enabled && options.refetchOnMount) {
       debugPrint('Refetching on mount in modern query notifier family with cached data, $paramKey');
-      Future.microtask(() => _fetch(arg));
+      unawaited(Future.microtask(() => _fetch(arg)));
     }
 
     if (options.enabled && options.refetchInterval != null) {
@@ -491,8 +491,8 @@ class QueryNotifierAutoDispose<T> extends AutoDisposeNotifier<QueryState<T>> wit
   int _retryCount = 0;
   
   final QueryCache _cache = getGlobalQueryCache();
-  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
-  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager();
+  final WindowFocusManager _windowFocusManager = WindowFocusManager();
   bool _isRefetchPaused = false;
   bool _isInitialized = false;
   bool _isDisposed = false;
@@ -527,7 +527,7 @@ class QueryNotifierAutoDispose<T> extends AutoDisposeNotifier<QueryState<T>> wit
     }
     
     if (options.enabled && options.refetchOnMount) {
-      Future.microtask(_fetch);
+      unawaited(Future.microtask(_fetch));
     }
 
     if (options.enabled && options.refetchInterval != null) {
@@ -688,8 +688,8 @@ class QueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyNotifier<Que
   int _retryCount = 0;
   
   final QueryCache _cache = getGlobalQueryCache();
-  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
-  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager();
+  final WindowFocusManager _windowFocusManager = WindowFocusManager();
   bool _isRefetchPaused = false;
   bool _isInitialized = false;
   bool _isDisposed = false;
@@ -726,7 +726,7 @@ class QueryNotifierFamilyAutoDispose<T, P> extends AutoDisposeFamilyNotifier<Que
     }
     
     if (options.enabled && options.refetchOnMount) {
-      Future.microtask(() => _fetch(arg));
+      unawaited(Future.microtask(() => _fetch(arg)));
     }
 
     if (options.enabled && options.refetchInterval != null) {

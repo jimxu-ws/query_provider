@@ -28,8 +28,8 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
 
   // Initialize cache, lifecycle manager, and window focus manager
   final QueryCache _cache = getGlobalQueryCache();
-  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
-  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager();
+  final WindowFocusManager _windowFocusManager = WindowFocusManager();
   bool _isRefetchPaused = false;
   bool _isInitialized = false;
   bool _isDisposed = false;
@@ -84,7 +84,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
       if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
         // Return cached data immediately, optionally trigger background refresh
         if (options.refetchOnMount) {
-          unawaited(Future.microtask(() => _backgroundRefetch().catchError((error) {
+          unawaited(Future.microtask(() => _backgroundRefetch().catchError((Object error) {
             debugPrint('Error in background refetch: $error');
           })));
         }
@@ -95,7 +95,7 @@ class AsyncQueryNotifier<T> extends AsyncNotifier<T> with QueryClientMixin {
       if (options.keepPreviousData &&
           ((!_isDisposed && state.hasValue) ||
               (cachedEntry != null && cachedEntry.hasData))) {
-        unawaited(Future.microtask(() => _backgroundRefetch().catchError((error) {
+        unawaited(Future.microtask(() => _backgroundRefetch().catchError((Object error) {
           debugPrint('Error in background refetch: $error');
         })));
 
@@ -324,8 +324,8 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
 
   // Initialize cache, lifecycle manager, and window focus manager
   final QueryCache _cache = getGlobalQueryCache();
-  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
-  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager();
+  final WindowFocusManager _windowFocusManager = WindowFocusManager();
   bool _isRefetchPaused = false;
   bool _isInitialized = false;
   bool _isDisposed = false;
@@ -381,7 +381,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
       if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
         // Return cached data immediately, optionally trigger background refresh
         if (options.refetchOnMount) {
-          Future.microtask(() => _backgroundRefetch(arg));
+          unawaited(Future.microtask(() => _backgroundRefetch(arg)));
         }
         debugPrint('Returning cached data in async query notifier family $paramKey');
         return cachedEntry.data as T;
@@ -390,7 +390,7 @@ class AsyncQueryNotifierFamily<T, P> extends FamilyAsyncNotifier<T, P>
       if (options.keepPreviousData &&
           ((!_isDisposed && state.hasValue) ||
               (cachedEntry != null && cachedEntry.hasData))) {
-        Future.microtask(() => _backgroundRefetch(arg));
+        unawaited(Future.microtask(() => _backgroundRefetch(arg)));
         debugPrint('Keeping previous data in async query notifier family $paramKey');
         return (!_isDisposed && state.hasValue)
             ? state.value as T
@@ -705,8 +705,8 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
   int _retryCount = 0;
 
   final QueryCache _cache = getGlobalQueryCache();
-  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
-  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager();
+  final WindowFocusManager _windowFocusManager = WindowFocusManager();
   bool _isRefetchPaused = false;
   bool _isInitialized = false;
   bool _isDisposed = false;
@@ -749,7 +749,7 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
       final cachedEntry = _getCachedEntry();
       if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
         if (options.refetchOnMount) {
-          unawaited(Future.microtask(() => _backgroundRefetch().catchError((error) {
+          unawaited(Future.microtask(() => _backgroundRefetch().catchError((Object error) {
             debugPrint('Error in background refetch: $error');
           })));
         }
@@ -759,7 +759,7 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
       if (options.keepPreviousData &&
           ((!_isDisposed && state.hasValue) ||
               (cachedEntry != null && cachedEntry.hasData))) {
-        unawaited(Future.microtask(() => _backgroundRefetch().catchError((error) {
+        unawaited(Future.microtask(() => _backgroundRefetch().catchError((Object error) {
           debugPrint('Error in background refetch: $error');
         })));
         return (!_isDisposed && state.hasValue)
@@ -776,7 +776,9 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
   }
 
   void _safeState(AsyncValue<T> state) {
-    if (!_isDisposed) this.state = state;
+    if (!_isDisposed) {
+      this.state = state;
+    }
   }
 
   Future<T> _performFetch() async {
@@ -813,7 +815,7 @@ class AsyncQueryNotifierAutoDispose<T> extends AutoDisposeAsyncNotifier<T>
       debugPrint('Background refetching in async query notifier auto dispose with cached data, $queryKey');
       final data = await _performFetch();
       _safeState(AsyncValue.data(data));
-    } catch (error, stackTrace) {
+    } catch (error, _) {
       // Silent failure
     }
   }
@@ -1039,8 +1041,8 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P>
   int _retryCount = 0;
 
   final QueryCache _cache = getGlobalQueryCache();
-  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
-  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager();
+  final WindowFocusManager _windowFocusManager = WindowFocusManager();
   bool _isRefetchPaused = false;
   bool _isInitialized = false;
   bool _isDisposed = false;
@@ -1084,7 +1086,7 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P>
       final cachedEntry = _getCachedEntry(paramKey);
       if (cachedEntry != null && !cachedEntry.isStale && cachedEntry.hasData) {
         if (options.refetchOnMount) {
-          Future.microtask(() => _backgroundRefetch(arg));
+          unawaited(Future.microtask(() => _backgroundRefetch(arg)));
         }
         return cachedEntry.data as T;
       }
@@ -1092,7 +1094,7 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P>
       if (options.keepPreviousData &&
           ((!_isDisposed && state.hasValue) ||
               (cachedEntry != null && cachedEntry.hasData))) {
-        Future.microtask(() => _backgroundRefetch(arg));
+        unawaited(Future.microtask(() => _backgroundRefetch(arg)));
         return (!_isDisposed && state.hasValue)
             ? state.value as T
             : cachedEntry?.data as T;
@@ -1107,7 +1109,9 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P>
   }
 
   void _safeState(AsyncValue<T> state) {
-    if (!_isDisposed) this.state = state;
+    if (!_isDisposed) {
+      this.state = state;
+    }
   }
 
   Future<T> _performFetch(P arg) async {
@@ -1145,7 +1149,7 @@ class AsyncQueryNotifierFamilyAutoDispose<T, P>
     try {
       final data = await _performFetch(arg);
       _safeState(AsyncValue.data(data));
-    } catch (error, stackTrace) {
+    } catch (error, _) {
       // Silent failure
     }
   }

@@ -1,14 +1,11 @@
-import 'dart:async';
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Manages app lifecycle state and window focus for query refetching
 class AppLifecycleManager extends ChangeNotifier with WidgetsBindingObserver {
-  static AppLifecycleManager? _instance;
   
   /// Singleton instance
-  static AppLifecycleManager get instance {
+  factory AppLifecycleManager() {
     _instance ??= AppLifecycleManager._();
     return _instance!;
   }
@@ -16,13 +13,11 @@ class AppLifecycleManager extends ChangeNotifier with WidgetsBindingObserver {
   AppLifecycleManager._() {
     WidgetsBinding.instance.addObserver(this);
   }
+  static AppLifecycleManager? _instance;
   
   AppLifecycleState _state = AppLifecycleState.resumed;
-  bool _windowHasFocus = true;
   final Set<VoidCallback> _onResumeCallbacks = {};
   final Set<VoidCallback> _onPauseCallbacks = {};
-  final Set<VoidCallback> _onWindowFocusCallbacks = {};
-  final Set<VoidCallback> _onWindowBlurCallbacks = {};
   
   /// Current app lifecycle state
   AppLifecycleState get state => _state;
@@ -32,12 +27,7 @@ class AppLifecycleManager extends ChangeNotifier with WidgetsBindingObserver {
   
   /// Whether the app is currently in background
   bool get isInBackground => !isInForeground;
-  
-  /// Whether the window currently has focus
-  bool get windowHasFocus => _windowHasFocus;
-  
-  /// Whether the window has lost focus
-  bool get windowHasLostFocus => !_windowHasFocus;
+
   
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -69,16 +59,6 @@ class AppLifecycleManager extends ChangeNotifier with WidgetsBindingObserver {
     _onPauseCallbacks.add(callback);
   }
   
-  /// Register callback for when window gains focus
-  void addOnWindowFocusCallback(VoidCallback callback) {
-    _onWindowFocusCallbacks.add(callback);
-  }
-  
-  /// Register callback for when window loses focus
-  void addOnWindowBlurCallback(VoidCallback callback) {
-    _onWindowBlurCallbacks.add(callback);
-  }
-  
   /// Remove resume callback
   void removeOnResumeCallback(VoidCallback callback) {
     _onResumeCallbacks.remove(callback);
@@ -87,16 +67,6 @@ class AppLifecycleManager extends ChangeNotifier with WidgetsBindingObserver {
   /// Remove pause callback
   void removeOnPauseCallback(VoidCallback callback) {
     _onPauseCallbacks.remove(callback);
-  }
-  
-  /// Remove window focus callback
-  void removeOnWindowFocusCallback(VoidCallback callback) {
-    _onWindowFocusCallbacks.remove(callback);
-  }
-  
-  /// Remove window blur callback
-  void removeOnWindowBlurCallback(VoidCallback callback) {
-    _onWindowBlurCallbacks.remove(callback);
   }
   
   void _notifyResumeCallbacks() {
@@ -128,15 +98,13 @@ class AppLifecycleManager extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _onResumeCallbacks.clear();
     _onPauseCallbacks.clear();
-    _onWindowFocusCallbacks.clear();
-    _onWindowBlurCallbacks.clear();
     super.dispose();
   }
 }
 
 /// Provider for app lifecycle state
 final appLifecycleProvider = ChangeNotifierProvider<AppLifecycleManager>((ref) {
-  return AppLifecycleManager.instance;
+  return AppLifecycleManager();
 });
 
 /// Provider for current app lifecycle state

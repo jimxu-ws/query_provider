@@ -10,7 +10,7 @@ class MockMutationService {
   static bool shouldFail = false;
   
   static Future<String> createUser(Map<String, dynamic> userData) async {
-    await Future.delayed(const Duration(milliseconds: 50));
+    await Future.delayed(const Duration(milliseconds: 50),()=>null);
     callCount++;
     
     if (shouldFail) {
@@ -99,7 +99,7 @@ void main() {
         throwsA(isA<Exception>()),
       );
       
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 100),()=>null);
       
       expect(MockMutationService.callCount, 1);
       

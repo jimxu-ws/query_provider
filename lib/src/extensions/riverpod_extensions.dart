@@ -1,9 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../modern_mutation_provider.dart';
 import '../modern_query_provider.dart';
 import '../mutation_options.dart';
-import '../modern_mutation_provider.dart';
-import '../query_cache.dart';
 import '../query_client.dart';
 import '../query_options.dart';
 import '../query_state.dart';

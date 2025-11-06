@@ -8,12 +8,12 @@ void main() {
 
     setUp(() {
       // Create a fresh instance for each test
-      manager = AppLifecycleManager.instance;
+      manager = AppLifecycleManager();
     });
 
     test('should be a singleton', () {
-      final manager1 = AppLifecycleManager.instance;
-      final manager2 = AppLifecycleManager.instance;
+      final manager1 = AppLifecycleManager();
+      final manager2 = AppLifecycleManager();
       
       expect(identical(manager1, manager2), true);
     });

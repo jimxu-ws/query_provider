@@ -1,15 +1,16 @@
-import 'dart:async';
 import 'dart:io';
+import 'dart:js_interop' if (dart.library.html) 'dart:js_interop' ;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:web/web.dart' if (dart.library.html) 'package:web/web.dart';
 
 /// Manages window focus detection for desktop and web platforms
 class WindowFocusManager extends ChangeNotifier {
-  static WindowFocusManager? _instance;
   
   /// Singleton instance
-  static WindowFocusManager get instance {
+  factory WindowFocusManager() {
     _instance ??= WindowFocusManager._();
     return _instance!;
   }
@@ -17,6 +18,7 @@ class WindowFocusManager extends ChangeNotifier {
   WindowFocusManager._() {
     _initialize();
   }
+  static WindowFocusManager? _instance;
   
   bool _windowHasFocus = true;
   final Set<VoidCallback> _onFocusCallbacks = {};
@@ -50,17 +52,7 @@ class WindowFocusManager extends ChangeNotifier {
   
   /// Set up focus listener for web platform
   void _setupWebFocusListener() {
-    // For web, we can use the HTML visibility API through platform channels
-    // This is a simplified implementation - in a real app you might use js interop
-    
-    // Simulate focus detection for web (in a real implementation, you'd use js interop)
-    Timer.periodic(const Duration(seconds: 1), (timer) {
-      // This is a placeholder - real implementation would check document.hasFocus()
-      // For demo purposes, we'll assume web always has focus
-      if (!_windowHasFocus) {
-        _handleFocusChange(true);
-      }
-    });
+    _WebFocusObserver(this);
   }
   
   /// Set up focus listener for desktop platforms
@@ -131,6 +123,7 @@ class WindowFocusManager extends ChangeNotifier {
   }
   
   /// Manually trigger focus change (for testing or custom implementations)
+  // ignore: avoid_positional_boolean_parameters
   void setWindowFocus(bool hasFocus) {
     _handleFocusChange(hasFocus);
   }
@@ -141,6 +134,41 @@ class WindowFocusManager extends ChangeNotifier {
     _onBlurCallbacks.clear();
     super.dispose();
   }
+}
+
+class _WebFocusObserver {
+  factory _WebFocusObserver(WindowFocusManager manager) {
+    _instance ??= _WebFocusObserver._(manager);
+    return _instance!;
+  }
+  
+  _WebFocusObserver._(this._manager) {
+    _setupFocusListener();
+  }
+  EventListener? _focusListener;
+  EventListener? _blurListener;
+  final WindowFocusManager _manager;
+  static _WebFocusObserver? _instance;
+
+  void _setupFocusListener() {
+    // Bind listeners using JS interop.
+    _focusListener = ((Event event) => _manager._handleFocusChange(true)).toJS;
+    _blurListener = ((Event event) => _manager._handleFocusChange(false)).toJS;
+    window.addEventListener('focus', _focusListener);
+    window.addEventListener('blur', _blurListener);
+  }
+
+  // void _clear() {
+  //   // Remove listeners.
+  //   if (_focusListener != null) {
+  //     window.removeEventListener('focus', _focusListener!);
+  //     _focusListener = null;
+  //   }
+  //   if (_blurListener != null) {
+  //     window.removeEventListener('blur', _blurListener!);
+  //     _blurListener = null;
+  //   }
+  // }
 }
 
 /// Observer for desktop focus detection
@@ -170,7 +198,7 @@ class _DesktopFocusObserver with WidgetsBindingObserver {
 
 /// Provider for window focus manager
 final windowFocusManagerProvider = ChangeNotifierProvider<WindowFocusManager>((ref) {
-  return WindowFocusManager.instance;
+  return WindowFocusManager();
 });
 
 /// Provider for current window focus state
@@ -181,5 +209,5 @@ final windowFocusStateProvider = Provider<bool>((ref) {
 
 /// Provider for whether window focus detection is supported
 final windowFocusSupportedProvider = Provider<bool>((ref) {
-  return WindowFocusManager.instance.isSupported;
+  return WindowFocusManager().isSupported;
 });

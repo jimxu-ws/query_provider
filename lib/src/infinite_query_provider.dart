@@ -354,8 +354,8 @@ class InfiniteQueryNotifier<T, TPageParam> extends Notifier<InfiniteQueryState<T
   
   // Initialize cache, lifecycle manager, and window focus manager
   final QueryCache _cache = getGlobalQueryCache();
-  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
-  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager();
+  final WindowFocusManager _windowFocusManager = WindowFocusManager();
   bool _isRefetchPaused = false;
 
   void _initialize() {
@@ -989,8 +989,8 @@ class InfiniteQueryNotifierAutoDispose<T, TPageParam> extends AutoDisposeNotifie
   
   // Initialize cache, lifecycle manager, and window focus manager
   final QueryCache _cache = getGlobalQueryCache();
-  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
-  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager();
+  final WindowFocusManager _windowFocusManager = WindowFocusManager();
   bool _isRefetchPaused = false;
 
   void _initialize() {

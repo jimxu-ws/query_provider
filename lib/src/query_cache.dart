@@ -1,5 +1,3 @@
-import 'dart:async';
-import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import 'package:meta/meta.dart';
 
@@ -57,11 +55,11 @@ class QueryCacheEntry<T> {
 
   /// Create a stale copy of the entry
     QueryCacheEntry<T> copyAsStale() => QueryCacheEntry<T>(
-      data: this.data,
-      fetchedAt: this.fetchedAt.subtract(this.options.staleTime + const Duration(minutes: 1)),
-      options: this.options,
-      error: this.error,
-      stackTrace: this.stackTrace,
+      data: data,
+      fetchedAt: fetchedAt.subtract(options.staleTime + const Duration(minutes: 1)),
+      options: options,
+      error: error,
+      stackTrace: stackTrace,
     );
 
   @override
@@ -132,7 +130,7 @@ class QueryCacheEvent {
   final QueryCacheEventType type;
   final String key;
   final DateTime timestamp;
-  final QueryCacheEntry? entry;
+  final QueryCacheEntry<dynamic>? entry;
 
   @override
   String toString() => 'QueryCacheEvent(${type.name}: $key at $timestamp)';

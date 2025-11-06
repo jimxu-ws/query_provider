@@ -41,8 +41,8 @@ class QueryStateNotifier<T> extends StateNotifier<QueryState<T>>
   int _retryCount = 0;
   // Initialize cache, lifecycle manager, and window focus manager
   final QueryCache _cache = getGlobalQueryCache();
-  final AppLifecycleManager _lifecycleManager = AppLifecycleManager.instance;
-  final WindowFocusManager _windowFocusManager = WindowFocusManager.instance;
+  final AppLifecycleManager _lifecycleManager = AppLifecycleManager();
+  final WindowFocusManager _windowFocusManager = WindowFocusManager();
   bool _isRefetchPaused = false;
   bool _isInitialized = false;
 
